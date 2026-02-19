@@ -1,0 +1,32 @@
+=== Correctness Suite: fl::string vs std::string ===
+Correctness: PASS
+
+=== Performance Suite: fl::string vs std::string ===
+Samples per operation: 7 (median of per-sample 3-run averages)
+Operation               std_med(us)   fl_med(us)    std/fl    std_cv(%)   fl_cv(%)    
+--------------------------------------------------------------------------------
+Construct small (SSO)   3448.800      1890.067      1.825     20.90       24.82       
+Construct large (heap)  5498.200      6678.900      0.823     25.53       16.10       
+Append small chunks     45652.800     49748.933     0.918     6.70        10.38       
+Find substring          4918.367      4622.800      1.064     9.96        20.98       
+Find substring (long)   74704.900     100219.433    0.745     10.89       5.78        
+Substr                  3315.767      3682.900      0.900     5.13        10.30       
+Insert mid              1619.033      819.200       1.976     7.86        12.28       
+Erase mid               1322.800      1058.767      1.249     11.52       23.18       
+Replace mid             1479.900      828.067       1.787     19.86       30.46       
+Comparison ==           4001.167      3327.200      1.203     9.62        19.54       
+Operator+               2249.367      3520.967      0.639     37.39       37.54       
+Lazy concat large       39375.933     44260.267     0.890     12.51       10.75       
+Lazy concat micro       44942.100     80409.333     0.559     8.69        3.77        
+
+=== Lazy Concat Branch Profiling (fl::lazy_concat) ===
+Case                        median(us)      mean(us)        cv(%)       median(ns/op) 
+------------------------------------------------------------------------------
+materialize: empty          125.367         144.948         29.34       2.51          
+materialize: single view    14300.733       15404.271       21.11       286.01        
+materialize: single owned   41689.367       41268.152       17.79       833.79        
+materialize: multi view     19147.867       18988.648       7.61        382.96        
+materialize: multi owned    166990.833      166623.333      2.84        3339.82       
+
+Summary: fl faster in 6, std faster in 7, ties 0 operations.
+Overall: PASS

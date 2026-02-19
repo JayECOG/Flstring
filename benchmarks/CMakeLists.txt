@@ -1,0 +1,12 @@
+# Benchmarks subdirectory
+
+add_executable(rope_vs_std_string_benchmarks rope_vs_std_string_benchmarks.cpp)
+target_link_libraries(rope_vs_std_string_benchmarks PRIVATE fl)
+
+add_executable(performance_optimisation_benchmarks performance_optimisation_benchmarks.cpp)
+target_link_libraries(performance_optimisation_benchmarks PRIVATE fl)
+add_executable(string_vs_std_bench string_vs_std_bench.cpp)
+target_link_libraries(string_vs_std_bench PRIVATE fl)
+
+add_executable(comprehensive_bench comprehensive_bench.cpp)
+target_link_libraries(comprehensive_bench PRIVATE fl)

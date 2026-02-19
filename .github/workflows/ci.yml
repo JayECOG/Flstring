@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_BASEDIR: ${{ github.workspace }}
+
+jobs:
+  lint:
+    name: Static analysis (cppcheck)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Generate compile database
+        run: |
+          cmake -S . -B build-lint \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --quiet --project=build-lint/compile_commands.json \
+            --enable=warning,performance,style,portability --std=c++20 --language=c++ \
+            --suppress=missingIncludeSystem
+
+  sanitizers:
+    name: Sanitized builds & tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure sanitizer build
+        run: |
+          cmake -S . -B build-sanitizer \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DFL_FETCH_DEPS=ON \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+      - name: Build sanitizer targets
+        run: cmake --build build-sanitizer --parallel
+
+      - name: Run sanitizer tests
+        run: ctest --test-dir build-sanitizer --output-on-failure --verbose
+
+  result:
+    name: CI Result
+    if: always()
+    needs: [lint, sanitizers]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check CI Status
+        run: |
+          if [ "${{ needs.lint.result }}" = "failure" ] || [ "${{ needs.sanitizers.result }}" = "failure" ]; then
+            echo "❌ CI failed"
+            exit 1
+          else
+            echo "✅ All checks passed"
+          fi

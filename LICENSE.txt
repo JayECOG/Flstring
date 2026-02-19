@@ -1,0 +1,302 @@
+# FL LICENSE
+
+Copyright (c) 2026 Jayden Emmanuel.
+
+This agreement allows the Software to be used under specific terms and conditions. The Licensee
+wants to use, copy, modify, merge, publish, distribute, sublicense, and/or sell the Software
+according to these terms.
+
+In exchange for these mutual promises, the parties agree as follows.
+
+
+
+## 1. Definitions
+
+For this License Agreement, these words mean the following unless the context requires otherwise:
+
+**1.1 "Software"** means the computer program, source code, object code, documentation, and any
+associated materials provided under this License Agreement, including any modifications,
+enhancements, or derivative works.
+
+**1.2 "Copyright Holders"** means the person(s) or organization(s) who hold the copyright and
+other intellectual property rights in the Software, as named in the copyright notice above.
+
+**1.3 "Contributors"** means anyone who has contributed code, documentation, or other materials
+to the Software, directly or indirectly, including developers, maintainers, testers, and others
+involved in creating or improving the Software.
+
+**1.4 "Licensee" or "You"** means any person or legal entity that exercises rights under this
+License Agreement, including employees, agents, contractors, or representatives acting for that
+entity.
+
+**1.5 "Derivative Works"** means any work, in source or object form, that is based on, derived
+from, or includes the Software or any part of it, including modifications, adaptations,
+translations, compilations, or other forms that transform or recast the Software.
+
+**1.6 "Third Party"** means anyone other than the Copyright Holders, Contributors, or Licensee,
+including users, distributors, customers, or other parties not directly involved in creating or
+licensing the Software.
+
+**1.7 "Work"** means the Software and any Derivative Works together.
+
+**1.8 "Source Code"** means the preferred form for making changes to the Software, including all
+modules it contains, interface definition files, scripts used to build and install an executable,
+or a list of materials needed to compile the Software.
+
+**1.9 "Object Code"** means any non-source form of the Software, such as compiled machine code
+or bytecode.
+
+**1.10 "NOTICE file"** means a text file named "NOTICE" (or another location explicitly specified
+by the Copyright Holders) included with distributed copies of the Work that lists any
+attributions, third-party notices, or additional licensing information the Copyright Holders
+require to be provided with redistributed copies or Derivative Works.
+
+**1.11 "Contribution"** means any original work of authorship, including but not limited to
+source code, documentation, comments, patches, pull requests, or other materials, that a
+Contributor intentionally submits to the Copyright Holders for inclusion in the Work.
+Contribution does not include code or materials that a Contributor submits incidentally (e.g., in
+automated telemetry) unless explicitly accepted by the Copyright Holders.
+
+**1.12 "Copyright Holders' Contribution(s)"** means those Contribution(s) that the Copyright
+Holders themselves have authored and contributed to the Work. Where the patent license in Section
+3 refers to "Copyright Holders' Contribution(s)," it means patent claims necessarily infringed
+by those specific Contribution(s) alone or when combined with the Work to which they were
+submitted.
+
+**1.13 "Contributor"** means any person or entity who makes a Contribution to the Work and
+thereby agrees that their Contribution is made available under the terms of this License. If a
+Contribution is made by an individual who is employed by, contracted to, or otherwise acting on
+behalf of an organization, that Contribution is made on behalf of that organization to the extent
+permitted by any employment, contractor, or other agreement; the organization may therefore hold
+rights in the Contribution and the Contributor has ensured they have the authority to license the
+Contribution under this License.
+
+**1.14 "License Agreement" or "License"** means this agreement, including any appendices,
+attachments, or notices incorporated by reference.
+
+**1.15 "Licensor"** means the Copyright Holders collectively or any of them acting under
+authority granted by the Copyright Holders to exercise the rights in this License.
+
+
+
+## 2. Grant of Copyright License
+
+**2.1** Subject to the terms of this License Agreement, the Copyright Holders grant you a
+perpetual, irrevocable, worldwide, non-exclusive, royalty-free, fully paid-up license to use,
+reproduce, copy, modify, merge, publish, distribute, sublicense, perform, display, and/or sell
+copies of the Software and any Derivative Works. This license is granted "with all faults" and
+"as available," with no warranties or representations of any kind.
+
+**2.2** You must give anyone who receives the Work or any Derivative Works a copy of this
+License Agreement along with the Work or Derivative Works.
+
+**2.3** When you redistribute the Work or Derivative Works, you may offer and charge for
+support, warranty, indemnity, or other liability obligations or rights that are consistent with
+this License Agreement. If you accept such obligations, you do so only for yourself and at your
+own responsibility, not for any other Contributor. Offering or accepting those extra obligations
+does not change this License Agreement for anyone else.
+
+
+
+## 3. Grant of Patent License
+
+**3.1** The Copyright Holders grant you a fully paid-up, worldwide, royalty-free, non-exclusive,
+irrevocable patent license to make, have made, use, offer to sell, sell, import, and otherwise
+transfer the Work, where such license applies only to those patent claims that are necessarily
+infringed by the Copyright Holders' Contribution(s) to the Work alone or by the combination of
+the Copyright Holders' Contribution(s) with the Work to which such Contribution(s) was submitted.
+This patent license does not apply to any other combinations that include contributions from third
+parties.
+
+**3.2** If you institute, or help institute, patent litigation against any entity (including a
+cross-claim or counterclaim in a lawsuit) alleging that the Work or a Contribution incorporated
+within the Work constitutes direct or contributory patent infringement, then any patent licenses
+granted to you under this Section 3 for that Work shall terminate as of the date such litigation
+is filed.
+
+**3.3** The Copyright Holders and Contributors have no obligation to defend you against patent
+claims by Third Parties. The Software may be subject to Third-Party patent claims, and you assume
+all risks from such claims.
+
+
+
+## 4. Redistribution
+
+**4.1** You may reproduce and distribute copies of the Work or Derivative Works thereof in any
+medium, with or without modifications, and in Source or Object form, provided that You meet the
+following conditions:
+
+(a) You must give any other recipients of the Work or Derivative Works a copy of this License;
+and
+
+(b) You must cause any modified files to carry prominent notices stating that You changed the
+files; and
+
+(c) You must retain, in the Source form of any Derivative Works that You distribute, all
+copyright, trademark, patent, attribution and other notices from the Source form of the Work,
+excluding those notices that do not pertain to any part of the Derivative Works; and
+
+(d) If the Work includes a "NOTICE" file as part of its distribution, then any Derivative Works
+that You distribute must include a readable copy of the attribution notices contained within such
+NOTICE file, except for those notices that do not pertain to any part of the Derivative Works, in
+at least one of the following places: within a NOTICE file distributed as part of the Derivative
+Works; within the Source form or documentation, if provided along with the Derivative Works; or,
+within a display generated by the Derivative Works, if and wherever such third-party notices
+normally appear. The contents of the NOTICE file are for informational purposes only and do not
+modify the License. You may add Your own attribution notices within Derivative Works that You
+distribute, alongside or as an addendum to the NOTICE text from the Work, provided that such
+additional attribution notices cannot be construed as modifying the License.
+
+**4.2** You may add Your own copyright statement to Your modifications and may provide additional
+or different license terms and conditions for use, reproduction, or distribution of Your
+modifications, or for any such Derivative Works as a whole, provided that Your use, reproduction,
+and distribution of the Work otherwise complies with the conditions stated in this License.
+
+
+
+## 5. Submission of Contributions
+
+**5.1** Unless You explicitly state otherwise, any Contribution intentionally submitted for
+inclusion in the Work by You to the Licensor shall be under the terms and conditions of this
+License, without any additional terms or conditions. Notwithstanding the above, nothing herein
+shall supersede or modify the terms of any separate license agreement you may have executed with
+Licensor regarding such Contributions.
+
+
+
+## 6. Trademarks
+
+**6.1** This License does not give you any rights in the trade names, trademarks, service marks,
+or product names of the Copyright Holders or Contributors. You must not use those names or marks
+for endorsement, promotion, or other purposes without their prior written consent.
+
+
+
+## 7. Disclaimer of Warranties
+
+**7.1** TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED "AS IS,"
+"WITH ALL FAULTS," AND "AS AVAILABLE," WITHOUT ANY WARRANTY, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE,
+NON-INFRINGEMENT, QUIET ENJOYMENT, ACCURACY, COMPLETENESS, RELIABILITY, SECURITY,
+COMPATIBILITY, PERFORMANCE, OR ANY OTHER WARRANTY. THE ENTIRE RISK AS TO THE QUALITY AND
+PERFORMANCE OF THE SOFTWARE IS WITH YOU. IF THE SOFTWARE IS DEFECTIVE, YOU ASSUME THE FULL COST
+OF ANY NECESSARY SERVICING, REPAIR, OR CORRECTION. TO THE FULLEST EXTENT PERMITTED BY
+APPLICABLE LAW, THE COPYRIGHT HOLDERS, CONTRIBUTORS, AND ANYONE INVOLVED IN CREATING OR
+DELIVERING THE SOFTWARE ARE NOT LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+PUNITIVE, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, COSTS OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; BUSINESS INTERRUPTION; PERSONAL INJURY; OR DEATH) UNDER
+ANY THEORY OF LIABILITY (CONTRACT, STRICT LIABILITY, OR TORT, INCLUDING NEGLIGENCE), ARISING IN
+ANY WAY FROM THE USE OR PERFORMANCE OF THIS SOFTWARE, EVEN IF THEY WERE ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGES.
+
+**7.2** You acknowledge the Software may contain bugs, defects, or other problems that can cause
+failures, data loss, or other issues, and you assume all such risks to the fullest extent
+permitted by applicable law. To the fullest extent permitted by applicable law, the Copyright
+Holders and Contributors make no promises about suitability for any purpose or the absence of
+viruses, malware, or other harmful components.
+
+**7.3** To the fullest extent permitted by applicable law, and except as required by applicable
+law, you agree that the Copyright Holders and Contributors will not be liable for any damages or
+losses arising from your use of the Software, and you waive any right to seek indemnification or
+recovery from them for such damages or losses.
+
+**7.4** Some jurisdictions do not allow the exclusion of implied warranties or limitations on
+applicable statutory rights; in such jurisdictions, the disclaimers and exclusions in this
+Section 7 apply to the fullest extent permitted by applicable law. Nothing in this License is
+intended to limit any rights You may have that cannot be excluded or limited under applicable
+mandatory law.
+
+
+
+## 8. Limitation of Liability
+
+**8.1** To the fullest extent permitted by applicable law, and except as required by applicable
+law (including, without limitation, applicable mandatory statutory obligations that cannot be
+contractually excluded), each Copyright Holder and each Contributor shall be liable to You
+individually and solely with respect to their own Contributions or portions of the Work directly
+attributable to them. In no event shall the aggregate liability of any individual Copyright
+Holder or any individual Contributor — considered separately and independently — for all claims
+arising out of or relating to this License Agreement or the Software exceed the greater of:
+(a) the total amounts actually paid by You directly to that specific Copyright Holder or that
+specific Contributor for the Software, or for the specific portion of the Work giving rise to the
+claim, during the twelve (12) calendar months immediately preceding the date the claim arose; or
+(b) Five (5.00) units of the local currency of the jurisdiction in which that specific Copyright
+Holder or Contributor is domiciled or principally located, or in the case of a legal entity, in
+which that entity is incorporated or principally carries on business ("Local Currency Cap"). Where
+no amounts were paid to a specific Copyright Holder or Contributor, their individual aggregate
+liability shall not exceed the Local Currency Cap of their respective jurisdiction. For purposes of
+determining and enforcing this cap across transactions or claims in different currencies, the
+applicable local currency is that of the Copyright Holder or Contributor against whom the claim is
+brought, and payments or damages shall be converted to that local currency using the exchange rate
+in effect on the date the claim arose, if conversion is necessary to apply this limitation.
+
+**8.2** The liability cap in Section 8.1 applies separately and independently to each Copyright
+Holder and to each Contributor. No Copyright Holder bears any liability for the acts, omissions,
+Contributions, or obligations of any other Copyright Holder or Contributor, and no Contributor
+bears any liability for the acts, omissions, Contributions, or obligations of any other
+Contributor or of the Copyright Holders. You acknowledge and agree that each Copyright Holder and
+each Contributor entered into this License in reliance on the individual liability limitations set
+forth herein, and that these limitations constitute a fundamental term of this License without
+which neither the Copyright Holders nor the Contributors would have granted the rights herein.
+
+**8.3** These limitations on liability shall apply regardless of the form of action, whether
+based on contract, tort (including negligence), strict liability, or any other legal or equitable
+theory, and shall apply notwithstanding any failure of the essential purpose of any limited remedy
+available to You.
+
+**8.4** Some jurisdictions do not permit the limitation or exclusion of liability for certain
+types of damages; in such jurisdictions, the limitations and exclusions in this Section 8 apply
+to the fullest extent permitted by applicable law. Nothing in this License is intended to limit
+any liability that cannot be limited or excluded under applicable mandatory law, including any
+liability for fraud, wilful misconduct, or gross negligence where such limitation is prohibited
+by law.
+
+
+
+## 9. Termination
+
+**9.1** This License Agreement ends automatically and without notice if you fail to comply with
+any of its terms.
+
+**9.2** On termination, you must immediately stop all use of the Software.
+
+**9.3** Sections 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, and 12 survive termination.
+
+
+
+## 10. Miscellaneous
+
+**10.1** This License Agreement is the complete agreement between the parties about its subject
+and replaces all prior agreements, understandings, negotiations, and discussions, written or oral.
+
+**10.2** If any part of this License Agreement is found to be invalid, illegal, or unenforceable
+by a court, that part will be removed, and the rest will continue in full force.
+
+**10.3** You must follow all applicable laws, regulations, and ordinances in your jurisdiction
+when using, distributing, or exploiting the Software, including international trade laws, export
+controls, and intellectual property laws.
+
+**10.4** By using, copying, modifying, merging, publishing, distributing, sublicensing, or
+selling the Software, you agree to be bound by this License Agreement. If accepting these terms
+is an offer, your actions described above are acceptance.
+
+
+
+## 11. No Misrepresentation of Authorship and Origin
+
+**11.1** You must not say or imply that you are the original author, creator, or owner of the
+Software or any Derivative Works. All copies, modifications, and Derivative Works must retain the
+original copyright notice, attributions, and this License Agreement in full.
+
+**11.2** You may not remove, obscure, or alter any copyright, trademark, or attribution notices
+present in the Work, and you must not use the Copyright Holders' or Contributors' names in a way
+that suggests endorsement, sponsorship, or affiliation without their prior written consent.
+
+
+
+## 12. Third-Party Components
+
+**12.1** The Software may include third-party components that have their own licenses. You are
+responsible for following those third-party licenses. A list of such components and their
+licenses, if any, will be provided in the NOTICE file or other documentation as specified by the
+Copyright Holders.
