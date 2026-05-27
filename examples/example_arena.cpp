@@ -11,13 +11,13 @@ int main() {
         
         fl::arena_allocator<1024> arena;
         
-        std::cout << "  Initial available stack: " << arena.available_stack() << " bytes" << std::endl;
+        std::cout << "  Initial stack used: " << arena.used() << " bytes" << std::endl;
         
         void* ptr1 = arena.allocate(32);
-        std::cout << "  After allocating 32 bytes: " << arena.available_stack() << " bytes available" << std::endl;
+        std::cout << "  After allocating 32 bytes: " << arena.used() << " bytes used" << std::endl;
         
         void* ptr2 = arena.allocate(64);
-        std::cout << "  After allocating 64 bytes: " << arena.available_stack() << " bytes available" << std::endl << std::endl;
+        std::cout << "  After allocating 64 bytes: " << arena.used() << " bytes used" << std::endl << std::endl;
     }
 
     // Example 2: Arena reset
@@ -26,13 +26,13 @@ int main() {
         
         fl::arena_allocator<256> arena;
         
-        std::cout << "  Before allocation: " << arena.available_stack() << " bytes" << std::endl;
+        std::cout << "  Before allocation: " << arena.used() << " bytes" << std::endl;
         
         arena.allocate(100);
-        std::cout << "  After allocation: " << arena.available_stack() << " bytes" << std::endl;
+        std::cout << "  After allocation: " << arena.used() << " bytes" << std::endl;
         
         arena.reset();
-        std::cout << "  After reset: " << arena.available_stack() << " bytes" << std::endl << std::endl;
+        std::cout << "  After reset: " << arena.used() << " bytes" << std::endl << std::endl;
     }
 
     // Example 3: Arena overflow to heap
@@ -56,24 +56,21 @@ int main() {
     {
         std::cout << "4. Temporary buffer:" << std::endl;
         
-        fl::temp_buffer temp;  // 4KB stack by default
+        fl::temp_buffer temp = fl::get_pooled_temp_buffer();  // 4KB stack by default
         
         temp->append("Part1").append(" ").append("Part2");
         
-        // fl::arena_buffer does not expose size(), capacity() or data() directly.
-        // The content is accessed via to_string().
-        // std::cout << "  Buffer size: " << temp->size() << std::endl;
-        // std::cout << "  Buffer capacity: " << temp->capacity() << std::endl;
-        // std::cout << "  Content: '" << temp->data() << "'" << std::endl << std::endl;
-        fl::string result = temp->to_string();
-        std::cout << "  Content: '" << result.c_str() << "'" << std::endl << std::endl;
+        // arena_buffer exposes size(), capacity() and data() directly.
+        std::cout << "  Buffer size: " << temp->size() << std::endl;
+        std::cout << "  Buffer capacity: " << temp->capacity() << std::endl;
+        std::cout << "  Content: '" << temp->data() << "'" << std::endl << std::endl;
     }
 
     // Example 5: Temporary buffer to string
     {
         std::cout << "5. Convert temporary buffer to string:" << std::endl;
         
-        fl::temp_buffer temp;
+        fl::temp_buffer temp = fl::get_pooled_temp_buffer();
         temp->append("Hello").append(" ").append("World");
         
         fl::string result = temp->to_string();
@@ -92,63 +89,59 @@ int main() {
             if (i < 9) temp_custom.append(", ");
         }
         
-        // fl::arena_buffer does not expose size(), capacity() or data() directly.
-        // std::cout << "  Buffer size: " << temp_custom.size() << std::endl;
-        std::cout << "  Used stack: 2048 bytes" << std::endl << std::endl;
+        // arena_buffer exposes size(), capacity() and data() directly.
+        std::cout << "  Buffer size: " << temp_custom.size() << std::endl;
+        std::cout << "  Content: '" << temp_custom.data() << "'" << std::endl << std::endl;
     }
 
     // Example 7: Arena buffer with reserve
     {
         std::cout << "7. Arena buffer with reserve:" << std::endl;
         
-        fl::temp_buffer temp;
-        // fl::arena_buffer does not expose reserve() directly.
-        // temp->reserve(512);  // Pre-allocate
+        fl::temp_buffer temp = fl::get_pooled_temp_buffer();
+        // arena_buffer exposes reserve() directly.
+        temp->reserve(512);  // Pre-allocate
         
-        // std::cout << "  Capacity after reserve(512): " << temp->capacity() << std::endl;
+        std::cout << "  Capacity after reserve(512): " << temp->capacity() << std::endl;
         
         temp->append("Efficient building");
-        // std::cout << "  After append: size = " << temp->size() << std::endl << std::endl;
-        fl::string result = temp->to_string();
-        std::cout << "  After append, content is: " << result.c_str() << std::endl << std::endl;
+        std::cout << "  After append: size = " << temp->size() << std::endl << std::endl;
     }
 
     // Example 8: Arena buffer clear and reuse
     {
         std::cout << "8. Arena buffer clear and reuse:" << std::endl;
         
-        fl::temp_buffer temp;
+        fl::temp_buffer temp = fl::get_pooled_temp_buffer();
         
         // First use
         temp->append("First");
-        // fl::arena_buffer does not expose size().
-        // std::cout << "  First use size: " << temp->size() << std::endl;
+        // arena_buffer exposes size().
+        std::cout << "  First use size: " << temp->size() << std::endl;
         
         temp->clear();
-        // std::cout << "  After clear: " << temp->size() << std::endl;
+        std::cout << "  After clear: " << temp->size() << std::endl;
         
         // Reuse
         temp->append("Second");
-        // std::cout << "  Second use size: " << temp->size() << std::endl << std::endl;
-        fl::string result = temp->to_string();
-        std::cout << "  After second use, content is: " << result.c_str() << std::endl << std::endl;
+        std::cout << "  Second use size: " << temp->size() << std::endl << std::endl;
     }
 
     // Example 9: Large data in arena
     {
         std::cout << "9. Building large strings with arena:" << std::endl;
         
-        fl::temp_buffer temp;
-        // fl::arena_buffer does not expose reserve().
-        // temp->reserve(2000);
+        fl::temp_buffer temp = fl::get_pooled_temp_buffer();
+        // arena_buffer exposes reserve().
+        temp->reserve(2000);
         
         // Simulate building a large structure
         for (int i = 0; i < 100; ++i) {
             temp->append("Line ").append_repeat('x', 1).append("\n");
         }
         
-        // fl::arena_buffer does not expose size().
-        // std::cout << "  Final size: " << temp->size() << " bytes" << std::endl;
+        // arena_buffer exposes size().
+        std::cout << "  Final size: " << temp->size() << " bytes" << std::endl;
         std::cout << "  No heap allocation for most of it!" << std::endl << std::endl;
     }
 
@@ -156,9 +149,9 @@ int main() {
     {
         std::cout << "10. Practical pattern - building request:" << std::endl;
         
-        fl::temp_buffer request;
-        // fl::arena_buffer does not expose reserve().
-        // request->reserve(512);
+        fl::temp_buffer request = fl::get_pooled_temp_buffer();
+        // arena_buffer exposes reserve().
+        request->reserve(512);
         
         request->append("GET /api/users HTTP/1.1\r\n");
         request->append("Host: example.com\r\n");

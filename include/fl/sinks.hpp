@@ -4,74 +4,95 @@
 #ifndef FL_SINKS_HPP
 #define FL_SINKS_HPP
 
-// Output sink abstractions for directing formatted output to various
-// destinations (memory buffers, files, streams) without allocation overhead.
+/// @file Output sink abstractions.
+///
+/// Directs formatted output to memory buffers, files, and streams without
+/// intermediate allocation.  Six sink types are provided, each inheriting
+/// from output_sink.
 
+#include "fl/config.hpp"
 #include "string.hpp"
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace fl {
 
 namespace sinks {
 
-// Abstract base class for output destinations. Subclasses implement write()
-// to direct formatted output to different targets such as memory buffers,
-// files, or streams.
+/// @cond INTERNAL
+namespace detail {
+
+inline void validate_write_input(const char* sink_name, const char* data, std::size_t len) {
+    if (len == 0) return;
+    if (!data) {
+        throw std::invalid_argument(std::string("fl::sinks::") + sink_name + ": data pointer is null with non-zero length");
+    }
+}
+
+inline void validate_counter_add(const char* sink_name, std::size_t current, std::size_t add) {
+    if (add > std::numeric_limits<std::size_t>::max() - current) {
+        throw std::overflow_error(std::string("fl::sinks::") + sink_name + ": write counter overflow");
+    }
+}
+
+}  // namespace detail
+/// @endcond
+
+/// Abstract base class for output destinations.
+///
+/// Subclasses implement write() to direct formatted output to targets such as
+/// memory buffers, files, or streams.
 class output_sink {
 public:
     virtual ~output_sink() = default;
-
     virtual void write(const char* data, std::size_t len) = 0;
 
-    // Flushes any buffered data. The default implementation is a no-op.
+    /// Flushes any buffered data.  Default implementation is a no-op.
     virtual void flush() {}
 
-    void write_char(char ch) {
-        write(&ch, 1);
-    }
-
-    void write_string(const fl::string& str) {
-        write(str.data(), str.size());
-    }
-
+    void write_char(char ch)       { write(&ch, 1); }
+    void write_string(const fl::string& str) { write(str.data(), str.size()); }
     void write_cstring(const char* cstr) {
-        if (cstr) {
-            write(cstr, std::strlen(cstr));
-        }
+        if (cstr) write(cstr, std::strlen(cstr));
     }
 };
 
-// Writes to a caller-provided fixed-size buffer. Throws std::overflow_error
-// if data would exceed the buffer capacity.
-class buffer_sink : public output_sink {
+/// Writes to a fixed-size caller-provided buffer.
+/// Throws std::overflow_error when the output exceeds capacity.
+class buffer_sink final : public output_sink {
 public:
-    buffer_sink(char* buffer, std::size_t capacity) noexcept
+    explicit buffer_sink(char* buffer, std::size_t capacity) noexcept
         : _buffer(buffer), _capacity(capacity), _written(0) {}
 
     void write(const char* data, std::size_t len) override {
+        detail::validate_write_input("buffer_sink", data, len);
+        detail::validate_counter_add("buffer_sink", _written, len);
         if (_written + len > _capacity) {
             throw std::overflow_error("fl::sinks::buffer_sink: buffer overflow");
         }
-        std::memcpy(_buffer + _written, data, len);
-        _written += len;
+        if (len > 0) {
+            std::memcpy(_buffer + _written, data, len);
+            _written += len;
+        }
     }
 
-    std::size_t written() const noexcept { return _written; }
-    std::size_t available() const noexcept { return _capacity - _written; }
-
+    /// Writes a null terminator at the current write position.
+    /// Does not affect the reported byte count.
     void null_terminate() {
         if (_written < _capacity) {
             _buffer[_written] = '\0';
         }
     }
 
-    char* buffer() noexcept { return _buffer; }
-    const char* buffer() const noexcept { return _buffer; }
-
+    std::size_t written() const noexcept { return _written; }
+    std::size_t capacity() const noexcept { return _capacity; }
     void reset() noexcept { _written = 0; }
 
 private:
@@ -80,150 +101,133 @@ private:
     std::size_t _written;
 };
 
-// Writes to a C FILE handle. When constructed with a filename the sink owns
-// the handle and closes it on destruction. When constructed with an existing
-// FILE pointer, ownership is controlled by the caller via the owns flag.
-class file_sink : public output_sink {
+/// Dynamically growing sink backed by a std::vector<char, Alloc>.
+///
+/// @tparam Alloc Allocator type (defaults to std::allocator<char>).
+template <typename Alloc = std::allocator<char>>
+class basic_growing_sink final : public output_sink {
 public:
-    explicit file_sink(const char* filename, bool append = false)
-        : _file(nullptr), _owns_file(true) {
-        const char* mode = append ? "ab" : "wb";
-    #if defined(_MSC_VER)
-        if (fopen_s(&_file, filename, mode) != 0 || !_file) {
-            throw std::runtime_error(std::string("fl::sinks::file_sink: cannot open file: ") + filename);
-        }
-    #else
-        _file = std::fopen(filename, mode);
-        if (!_file) {
-            throw std::runtime_error(std::string("fl::sinks::file_sink: cannot open file: ") + filename);
-        }
-    #endif
+    using allocator_type = Alloc;
+
+    basic_growing_sink() = default;
+    explicit basic_growing_sink(const Alloc& alloc) : _buffer(alloc) {}
+    explicit basic_growing_sink(std::size_t initial_capacity) {
+        _buffer.reserve(initial_capacity);
     }
-
-    explicit file_sink(std::FILE* file, bool owns = false) noexcept
-        : _file(file), _owns_file(owns) {}
-
-    ~file_sink() noexcept override {
-        if (_owns_file && _file) {
-            std::fclose(_file);
-        }
-    }
-
-    void write(const char* data, std::size_t len) override {
-        if (_file && std::fwrite(data, 1, len, _file) != len) {
-            throw std::runtime_error("fl::sinks::file_sink: write failed");
-        }
-    }
-
-    void flush() override {
-        if (_file) {
-            std::fflush(_file);
-        }
-    }
-
-private:
-    std::FILE* _file;
-    bool _owns_file;
-};
-
-// Writes to a std::ostream reference.
-class stream_sink : public output_sink {
-public:
-    explicit stream_sink(std::ostream& stream) noexcept : _stream(stream) {}
-
-    void write(const char* data, std::size_t len) override {
-        _stream.write(data, static_cast<std::streamsize>(len));
-    }
-
-    void flush() override {
-        _stream.flush();
-    }
-
-private:
-    std::ostream& _stream;
-};
-
-// Writes to an automatically growing std::vector<char> buffer. Useful when
-// the total output size is not known in advance.
-class growing_sink : public output_sink {
-public:
-    explicit growing_sink(std::size_t initial_capacity = 256) : _buffer(), _written(0) {
+    basic_growing_sink(std::size_t initial_capacity, const Alloc& alloc)
+        : _buffer(alloc) {
         _buffer.reserve(initial_capacity);
     }
 
     void write(const char* data, std::size_t len) override {
+        detail::validate_write_input("basic_growing_sink", data, len);
         _buffer.insert(_buffer.end(), data, data + len);
-        _written += len;
     }
 
-    // Null-terminates the buffer without affecting the reported size.
-    void null_terminate() {
-        if (_buffer.size() <= _written) {
-            _buffer.resize(_written + 1);
-        }
-        _buffer[_written] = '\0';
-    }
+    /// Writes a null terminator without affecting the reported size.
+    void null_terminate() { _buffer.push_back('\0'); }
 
+    std::size_t written() const noexcept { return _buffer.size(); }
+    const char* data() const noexcept { return _buffer.data(); }
+    void reset() noexcept { _buffer.clear(); }
+
+    /// Returns a fl::string copy of the accumulated output.
     fl::string to_fl_string() const {
         return fl::string(_buffer.data(), _buffer.size());
     }
 
-    const std::vector<char>& buffer() const noexcept { return _buffer; }
-    std::vector<char>& buffer() noexcept { return _buffer; }
-
-    std::size_t size() const noexcept { return _written; }
-    const char* data() const noexcept { return _buffer.data(); }
-
-    void reset() noexcept {
-        _buffer.clear();
-        _written = 0;
-    }
-
 private:
-    std::vector<char> _buffer;
-    std::size_t _written;
+    std::vector<char, Alloc> _buffer;
 };
 
-// Discards all output. Useful for benchmarking formatting overhead without
-// any I/O cost.
-class null_sink : public output_sink {
-public:
-    null_sink() noexcept : _written(0) {}
+/// Default growing sink using std::allocator<char> (backward-compatible).
+using growing_sink = basic_growing_sink<>;
 
-    void write(const char* data, std::size_t len) override {
-        (void)data;
-        _written += len;
+/// Writes to a C FILE* handle.
+/// Supports owned handles (fclose on destruction) and borrowed handles.
+class file_sink final : public output_sink {
+public:
+    explicit file_sink(const char* filename, const char* mode = "w") {
+        if (!filename || !(*filename)) {
+            throw std::invalid_argument("fl::sinks::file_sink: filename is null or empty");
+        }
+        _file = std::fopen(filename, mode ? mode : "w");
+        if (!_file) {
+            throw std::runtime_error(std::string("fl::sinks::file_sink: failed to open file: ") + filename);
+        }
+        _owned = true;
     }
 
-    std::size_t bytes_written() const noexcept { return _written; }
+    explicit file_sink(std::FILE* file, bool owned = false) noexcept
+        : _file(file), _owned(owned) {}
 
+    ~file_sink() override {
+        if (_owned && _file) {
+            std::fclose(_file);
+        }
+    }
+
+    file_sink(const file_sink&) = delete;
+    file_sink& operator=(const file_sink&) = delete;
+    file_sink(file_sink&& other) noexcept : _file(other._file), _owned(other._owned) {
+        other._file = nullptr;
+        other._owned = false;
+    }
+
+    void write(const char* data, std::size_t len) override {
+        detail::validate_write_input("file_sink", data, len);
+        if (_file && len > 0) {
+            if (std::fwrite(data, 1, len, _file) != len) {
+                throw std::runtime_error("fl::sinks::file_sink: write failed");
+            }
+        }
+    }
+
+    void flush() override { if (_file) std::fflush(_file); }
+
+private:
+    std::FILE* _file;
+    bool _owned;
+};
+
+/// Writes to a std::ostream reference.
+class stream_sink final : public output_sink {
+public:
+    explicit stream_sink(std::ostream& os) noexcept : _os(&os) {}
+    void write(const char* data, std::size_t len) override {
+        detail::validate_write_input("stream_sink", data, len);
+        _os->write(data, static_cast<std::streamsize>(len));
+    }
+    void flush() override { _os->flush(); }
+
+private:
+    std::ostream* _os;
+};
+
+/// Discards all output.  Maintains a byte count of discarded data.
+/// Useful for benchmarking formatting overhead.
+class null_sink final : public output_sink {
+public:
+    null_sink() noexcept = default;
+    void write(const char* /*data*/, std::size_t len) override { _written += len; }
+    std::size_t written() const noexcept { return _written; }
     void reset() noexcept { _written = 0; }
 
 private:
-    std::size_t _written;
+    std::size_t _written = 0;
 };
 
-// Fans out writes to multiple sinks simultaneously, allowing output to be
-// directed to several destinations at once.
-class multi_sink : public output_sink {
+/// Fan-out sink that writes to multiple output_sink targets.
+class multi_sink final : public output_sink {
 public:
-    multi_sink() : _sinks() {}
-
-    void add_sink(std::shared_ptr<output_sink> sink) {
-        _sinks.push_back(sink);
-    }
+    void add_sink(std::shared_ptr<output_sink> sink) { _sinks.push_back(std::move(sink)); }
 
     void write(const char* data, std::size_t len) override {
-        for (auto& sink : _sinks) {
-            sink->write(data, len);
-        }
+        detail::validate_write_input("multi_sink", data, len);
+        for (auto& s : _sinks) { s->write(data, len); }
     }
 
-    void flush() override {
-        for (auto& sink : _sinks) {
-            sink->flush();
-        }
-    }
+    void flush() override { for (auto& s : _sinks) { s->flush(); } }
 
 private:
     std::vector<std::shared_ptr<output_sink>> _sinks;
@@ -231,28 +235,34 @@ private:
 
 }  // namespace sinks
 
-// Factory helpers for creating sinks.
+// -- Factory helpers ----------------------------------------------------------
 
-template <std::size_t N>
-sinks::buffer_sink make_buffer_sink(char (&buffer)[N]) noexcept {
-    return sinks::buffer_sink(buffer, N);
+inline sinks::buffer_sink make_buffer_sink(char* buffer, std::size_t capacity) noexcept {
+    return sinks::buffer_sink(buffer, capacity);
 }
 
-inline std::shared_ptr<sinks::file_sink> make_file_sink(const char* filename, bool append = false) {
-    return std::make_shared<sinks::file_sink>(filename, append);
+template <typename Alloc = std::allocator<char>>
+inline sinks::basic_growing_sink<Alloc> make_growing_sink(const Alloc& alloc = Alloc()) {
+    return sinks::basic_growing_sink<Alloc>(alloc);
 }
 
-inline std::shared_ptr<sinks::stream_sink> make_stream_sink(std::ostream& stream) noexcept {
-    return std::make_shared<sinks::stream_sink>(stream);
+template <typename Alloc = std::allocator<char>>
+inline sinks::basic_growing_sink<Alloc> make_growing_sink(std::size_t initial_capacity, const Alloc& alloc = Alloc()) {
+    return sinks::basic_growing_sink<Alloc>(initial_capacity, alloc);
 }
 
-inline std::shared_ptr<sinks::growing_sink> make_growing_sink(std::size_t initial_capacity = 256) {
-    return std::make_shared<sinks::growing_sink>(initial_capacity);
+inline sinks::file_sink make_file_sink(const char* filename, const char* mode = "w") {
+    return sinks::file_sink(filename, mode);
+}
+inline sinks::file_sink make_file_sink(std::FILE* file, bool owned = false) noexcept {
+    return sinks::file_sink(file, owned);
 }
 
-inline std::shared_ptr<sinks::null_sink> make_null_sink() noexcept {
-    return std::make_shared<sinks::null_sink>();
+inline sinks::stream_sink make_stream_sink(std::ostream& os) noexcept {
+    return sinks::stream_sink(os);
 }
+
+inline sinks::null_sink make_null_sink() noexcept { return sinks::null_sink(); }
 
 }  // namespace fl
 

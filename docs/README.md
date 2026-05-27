@@ -1,7 +1,6 @@
 # fl: A High-Performance C++ String Library
 
-The `fl` library is a header-only, high-performance C++20 string library engineered for systems
-where memory efficiency and allocation overhead are critical.
+The `fl` library is a header-only, high-performance C++20 string library engineered for systems where memory efficiency and allocation overhead are critical.
 
 ## Philosophy
 
@@ -38,9 +37,14 @@ The `fl` library is header-only. For basic usage, include the main header file:
 To build the tests and examples, use CMake:
 ```bash
 mkdir build && cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build .
+ctest --output-on-failure
 ```
+
+> **C++ standard note:** `fl` requires C++20. If your project targets C++11, C++14, or C++17,
+> you can use fl types by converting them to and from `std::string` via the implicit
+> `operator std::string()` conversion or the explicit `to_std_string()` method.
 
 ### Your First `fl::string`
 
@@ -171,11 +175,11 @@ repeated-structure data where glibc `memmem` degrades toward O(n×m).
 We run performance tracking with repeated samples, median reporting, and spread (IQR) to reduce
 one-off noise.
 
-Recent hot-path analysis identified three priority areas:
+Recent hot-path analysis identified three priority areas that are actively monitored and iteratively improved:
 
-* `fl::rope` random access traversal overhead.
-* `fl::string` short-needle substring search (`find`).
-* `fl::string` heap-construction behaviour in mid-sized cases.
+* `fl::rope` random-access traversal overhead. The 2.0.0 release replaced recursive tree traversal with an iterative stack-based approach and added pre-reserved capacity in concatenation paths.
+* `fl::string` short-needle substring search (`find`). The adaptive dispatch provides strong protection against worst-case O(n*m) behaviour on periodic data via Two-Way search on haystacks over 64 KB.
+* `fl::string` heap-construction behaviour. The TLS free-list pool makes heap allocation 14x faster than `std::string` in cold-start scenarios (ASLR benchmark), while the 23-byte SSO avoids heap allocation for the majority of real-world strings.
 
 A dedicated report with methodology, command lines, current figures, and dependency caveats is
 available in **[Performance.md](./Performance.md)**.

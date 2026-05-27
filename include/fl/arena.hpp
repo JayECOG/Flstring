@@ -4,10 +4,12 @@
 #ifndef FL_ARENA_HPP
 #define FL_ARENA_HPP
 
-// Arena-based allocation utilities. Provides a bump-pointer arena allocator,
-// a growable character buffer backed by an arena, and a thread-local pool of
-// reusable temporary buffers.
+/// @file Arena-based allocation utilities.
+///
+/// Provides a bump-pointer arena allocator, a growable character buffer backed
+/// by an arena, and a thread-local pool of reusable temporary buffers.
 
+#include "fl/config.hpp"
 #include <cstring>
 #include "fl/alloc_hooks.hpp"
 #include <memory>
@@ -17,26 +19,35 @@
 #include <cstdint>
 #include <algorithm>
 #include <thread>
+#include <string_view>
+#include <limits>
+#include <cassert>
 #include "fl/profiling.hpp"
 
 namespace fl {
 
 namespace detail {
     constexpr std::size_t DEFAULT_ARENA_STACK_SIZE = 4096;
-    constexpr std::size_t DEFAULT_BUFFER_INITIAL_CAPACITY = 256;
+    constexpr std::size_t DEFAULT_BUFFER_INITIAL_CAPACITY = 512;
 } // namespace detail
 
-// A bump-pointer allocator that serves small allocations from a fixed-size
-// stack-local buffer and falls back to the heap for requests that do not fit.
-// All allocations are 8-byte aligned. Heap blocks are freed on destruction or
-// when reset() is called. Non-copyable and non-movable because outstanding
-// pointers refer into the internal stack buffer.
+/// A bump-pointer allocator that serves small allocations from a fixed-size
+/// stack-local buffer and falls back to the heap for requests that do not fit.
+///
+/// All allocations are 8-byte aligned.  Heap blocks are freed on destruction or
+/// when reset() is called.  Non-copyable and non-movable because outstanding
+/// pointers refer into the internal stack buffer.
+///
+/// @warning This allocator is not thread-safe.  Allocate and deallocate from
+/// the same thread that created the allocator.  Cross-thread usage of
+/// temp_buffer (which uses thread-local pooling) is unsafe and will cause data
+/// corruption.
 template <std::size_t StackSize = detail::DEFAULT_ARENA_STACK_SIZE>
 class arena_allocator {
 public:
     using value_type = std::uint8_t;
 
-    arena_allocator() noexcept : _stack_ptr(_stack_buffer), _stack_used(0), _heap_blocks() {}
+    arena_allocator() noexcept : _stack_buffer(), _stack_used(0), _heap_blocks() {}
 
     ~arena_allocator() noexcept {
         for (auto& b : _heap_blocks) {
@@ -49,227 +60,245 @@ public:
     arena_allocator(arena_allocator&&) = delete;
     arena_allocator& operator=(arena_allocator&&) = delete;
 
-    void* allocate(std::size_t size) {
+    /// Allocates a block of the given size.
+    /// Serves from the stack buffer if possible; otherwise falls back to heap.
+    FL_INLINE void* allocate(std::size_t size) {
+        // Guard against overflow in the alignment arithmetic.
+        if (FL_UNLIKELY(size > std::numeric_limits<std::size_t>::max() - 7)) {
+            throw std::bad_alloc();
+        }
         std::size_t aligned_size = (size + 7) & ~7;
 
-        if (_stack_used + aligned_size <= StackSize) {
-            void* ptr = _stack_ptr + _stack_used;
+        if (FL_LIKELY(_stack_used <= StackSize && aligned_size <= StackSize - _stack_used)) {
+            void* ptr = _stack_buffer + _stack_used;
             _stack_used += aligned_size;
             return ptr;
         }
-
-        auto* mem = static_cast<std::uint8_t*>(fl::allocate_bytes(aligned_size));
-        _heap_blocks.emplace_back(mem, aligned_size);
-        return mem;
+        return _allocate_heap(aligned_size);
     }
 
-    void deallocate(void* ptr, std::size_t /*size*/) noexcept {
-        if (!ptr) return;
+    /// Deallocate is a no-op for stack allocations (bump-pointer reset).
+    /// For heap allocations, the block is freed on arena destruction or reset().
+    void deallocate(void* /*ptr*/, std::size_t /*size*/) noexcept {}
 
-        auto* uptr = static_cast<std::uint8_t*>(ptr);
+    /// Returns the number of bytes used from the stack buffer.
+    std::size_t used() const noexcept { return _stack_used; }
 
-        if (uptr >= _stack_buffer && uptr < (_stack_buffer + StackSize)) {
-            return;
-        }
+    /// Returns true if all allocations fit within the stack buffer.
+    bool stack_only() const noexcept { return _heap_blocks.empty(); }
 
-        auto it = std::find_if(_heap_blocks.begin(), _heap_blocks.end(),
-            [uptr](const std::pair<std::uint8_t*, std::size_t>& b) { return b.first == uptr; });
-
-        if (it != _heap_blocks.end()) {
-            fl::deallocate_bytes(it->first, it->second);
-            _heap_blocks.erase(it);
-        }
-    }
-
+    /// Resets the allocator, freeing all heap blocks and rewinding the stack.
     void reset() noexcept {
+        _stack_used = 0;
         for (auto& b : _heap_blocks) {
             fl::deallocate_bytes(b.first, b.second);
         }
         _heap_blocks.clear();
-        _stack_ptr = _stack_buffer;
-        _stack_used = 0;
-    }
-
-    std::size_t available_stack() const noexcept {
-        return StackSize - _stack_used;
-    }
-
-    std::size_t total_allocated() const noexcept {
-        std::size_t heap_total = 0;
-        for (auto const& b : _heap_blocks) {
-            heap_total += b.second;
-        }
-        return _stack_used + heap_total;
     }
 
 private:
-    std::uint8_t _stack_buffer[StackSize];
-    std::uint8_t* _stack_ptr;
+    FL_INLINE void* _allocate_heap(std::size_t size) {
+        auto* ptr = fl::allocate_bytes(size);
+        _heap_blocks.emplace_back(ptr, size);
+        return ptr;
+    }
+
+    alignas(std::max_align_t) char _stack_buffer[StackSize];
     std::size_t _stack_used;
-    std::vector<std::pair<std::uint8_t*, std::size_t>> _heap_blocks;
+    std::vector<std::pair<void*, std::size_t>> _heap_blocks;
 };
 
-// A growable character buffer backed by an arena_allocator. For typical sizes
-// all memory comes from the arena's stack region, avoiding the global heap
-// entirely. Non-copyable and non-movable.
+/// An append-only character buffer backed by an arena_allocator.
+///
+/// For typical sizes, all memory comes from the arena's stack region, avoiding
+/// the global heap entirely.  Growth beyond the stack region falls back to the
+/// arena's heap allocation path.
 template <std::size_t StackSize = detail::DEFAULT_ARENA_STACK_SIZE>
 class arena_buffer {
 public:
-    using arena_type = arena_allocator<StackSize>;
+    using value_type = char;
     using size_type = std::size_t;
 
-    arena_buffer() noexcept : _arena(), _buffer(nullptr), _capacity(0), _size(0) {
-        _init_buffer(detail::DEFAULT_BUFFER_INITIAL_CAPACITY);
-    }
+    arena_buffer() noexcept { _buf[0] = '\0'; }
 
-    explicit arena_buffer(size_type initial_capacity) : _arena(), _buffer(nullptr), _capacity(0), _size(0) {
-        _init_buffer(initial_capacity);
-    }
+    ~arena_buffer() noexcept { reset(); }
 
-    ~arena_buffer() noexcept = default;
-
-    arena_buffer(const arena_buffer&) = delete;
-    arena_buffer& operator=(const arena_buffer&) = delete;
-    arena_buffer(arena_buffer&&) = delete;
-    arena_buffer& operator=(arena_buffer&&) = delete;
-
-    arena_buffer& append(const char* cstr) noexcept {
-        if (cstr) {
-            return append(cstr, std::strlen(cstr));
+    explicit arena_buffer(std::size_t initial_capacity) {
+        if (initial_capacity <= StackSize) {
+            _buf[0] = '\0';
+            cur_size = 0;
+        } else {
+            _grow(initial_capacity);
         }
-        return *this;
     }
 
-    arena_buffer& append(const char* cstr, size_type len) noexcept {
+    /// Appends data.  Null pointer with len > 0 is a precondition violation
+    /// (asserts in debug builds; no-op in release).
+    arena_buffer& append(const char* cstr, size_type len) {
+        if (!cstr) {
+            assert(false && "append(ptr, len): cstr is null but len > 0");
+            return *this;
+        }
         if (len == 0) return *this;
-
-        size_type new_size = _size + len;
-        if (new_size > _capacity) {
-            _grow(new_size);
-        }
-
-        std::memcpy(_buffer + _size, cstr, len);
-        _size = new_size;
+        _ensure_capacity(len);
+        std::memcpy(_ptr() + cur_size, cstr, len);
+        cur_size += len;
+        _ptr()[cur_size] = '\0';
         return *this;
     }
 
-    arena_buffer& append(char ch) noexcept {
-        if (_size >= _capacity) {
-            _grow(_capacity * 2);
-        }
-        _buffer[_size++] = ch;
+    arena_buffer& append(char ch) {
+        _ensure_capacity(1);
+        _ptr()[cur_size++] = ch;
+        _ptr()[cur_size] = '\0';
         return *this;
     }
 
-    arena_buffer& append_repeat(char ch, size_type count) noexcept {
+    arena_buffer& append(const char* cstr) {
+        if (cstr) append(cstr, std::strlen(cstr));
+        return *this;
+    }
+
+    arena_buffer& append(std::string_view sv) {
+        if (!sv.empty())
+            append(sv.data(), sv.size());
+        return *this;
+    }
+
+    arena_buffer& append_repeat(char ch, size_type count) {
         if (count == 0) return *this;
-
-        size_type new_size = _size + count;
-        if (new_size > _capacity) {
-            _grow(new_size);
-        }
-
-        std::fill(_buffer + _size, _buffer + new_size, ch);
-        _size = new_size;
+        _ensure_capacity(count);
+        std::memset(_ptr() + cur_size, ch, count);
+        cur_size += count;
+        _ptr()[cur_size] = '\0';
         return *this;
     }
 
-    void clear() noexcept {
-        _size = 0;
+    std::string_view view() const noexcept {
+        return std::string_view(data(), size());
     }
 
+    /// Returns a view of the accumulated data.  Null-terminated.
+    const char* data()  const noexcept { return _buf; }
+    char*       data()        noexcept { return _buf; }
+
+    size_type size()     const noexcept { return cur_size; }
+    bool      empty()    const noexcept { return cur_size == 0; }
+    size_type capacity() const noexcept { return _heap_capacity ? _heap_capacity : StackSize; }
+
+    void clear() noexcept { cur_size = 0; _buf[0] = '\0'; }
+
+    /// Releases heap memory and resets to empty.
     void reset() noexcept {
-        _arena.reset();
-        _buffer = nullptr;
-        _capacity = 0;
-        _size = 0;
-        _init_buffer(detail::DEFAULT_BUFFER_INITIAL_CAPACITY);
+        if (_heap_ptr) {
+            fl::deallocate_bytes(_heap_ptr, _heap_capacity);
+            _heap_ptr = nullptr;
+            _heap_capacity = 0;
+        }
+        cur_size = 0;
+        _buf[0] = '\0';
     }
 
-    fl::string to_string() const {
-        return fl::string(_buffer, _size);
+    /// Ensures at least min_capacity bytes of storage are available.
+    void reserve(size_type min_capacity) {
+        if (min_capacity > capacity()) {
+            _grow(min_capacity - cur_size);
+        }
     }
+
+    /// Returns an fl::string copy of the accumulated data.
+    fl::string to_string() const { return fl::string(data(), size()); }
 
 private:
-    arena_type _arena;
-    char* _buffer;
-    size_type _capacity;
-    size_type _size;
+    char* _ptr() noexcept { return _heap_ptr ? _heap_ptr : _buf; }
 
-    void _init_buffer(size_type initial_capacity) {
-        _capacity = (initial_capacity == 0) ? 1 : initial_capacity;
-        _buffer = static_cast<char*>(_arena.allocate(_capacity + 1));
-        _buffer[0] = '\0';
-    }
-
-    void _grow(size_type min_capacity) {
-        size_type new_capacity = _capacity;
-        if (new_capacity == 0) new_capacity = detail::DEFAULT_BUFFER_INITIAL_CAPACITY;
-        while (new_capacity <= min_capacity) {
-            new_capacity *= 2;
-        }
-
-        char* old_buffer = _buffer;
-        [[maybe_unused]] size_type old_capacity = _capacity;
-
-        _buffer = static_cast<char*>(_arena.allocate(new_capacity + 1));
-        std::memcpy(_buffer, old_buffer, _size);
-        _capacity = new_capacity;
-    }
-};
-
-namespace detail {
-
-constexpr std::size_t MAX_ARENA_BUFFER_POOL_SIZE = 8;
-
-template <std::size_t StackSize_>
-struct arena_buffer_pool_details_ {
-    std::vector<std::unique_ptr<arena_buffer<StackSize_>>> pool;
-
-    ~arena_buffer_pool_details_() {
-        for (auto& buf_ptr : pool) {
-            buf_ptr->reset();
+    void _ensure_capacity(size_type needed) {
+        if (cur_size + needed >= capacity()) {
+            _grow(needed);
         }
     }
+
+    void _grow(size_type min_extra) {
+        // Prevent overflow in growth calculation
+        if (cur_size > std::numeric_limits<size_type>::max() - min_extra) {
+            throw std::overflow_error("arena_buffer::_grow: size overflow");
+        }
+        size_type min_cap = cur_size + min_extra + 1;  // +1 for NUL
+        // Check that min_cap didn't wrap (it shouldn't given the check above, but
+        // be defensive against edge cases around SIZE_MAX).
+        if (min_cap < min_extra) {
+            throw std::overflow_error("arena_buffer::_grow: capacity wraparound");
+        }
+        size_type new_cap = (std::max)(capacity() * 2, min_cap);
+        // Reject unreasonable allocation sizes before they reach the allocator.
+        // ASan flags allocation-size-too-big for requests >= SIZE_MAX/2.
+        constexpr size_type max_reasonable = std::numeric_limits<size_type>::max() / 2;
+        if (new_cap >= max_reasonable) {
+            throw std::bad_alloc();
+        }
+        if (new_cap < min_cap) {
+            // Wraparound: clamp
+            new_cap = min_cap;
+        }
+        auto* new_ptr = static_cast<char*>(fl::allocate_bytes(new_cap));
+        if (!new_ptr) {
+            throw std::bad_alloc();
+        }
+        if (cur_size > 0) {
+            std::memcpy(new_ptr, _ptr(), cur_size);
+        }
+        new_ptr[cur_size] = '\0';
+        if (_heap_ptr) {
+            fl::deallocate_bytes(_heap_ptr, _heap_capacity);
+        }
+        _heap_ptr = new_ptr;
+        _heap_capacity = new_cap;
+    }
+
+    char _buf[StackSize];
+    size_type cur_size = 0;
+    char* _heap_ptr = nullptr;
+    size_type _heap_capacity = 0;
 };
 
-static thread_local arena_buffer_pool_details_<DEFAULT_ARENA_STACK_SIZE> g_arena_buffer_pool_details;
+/// A std::unique_ptr<arena_buffer<4096>> with a custom deleter that returns the
+/// buffer to a thread-local pool (capacity 8) instead of destroying it.
+using temp_buffer = std::unique_ptr<arena_buffer<4096>, void(*)(arena_buffer<4096>*)>;
 
-} // namespace detail
+/// Retrieves a temp_buffer from the thread-local pool, or allocates a new one.
+/// The buffer is automatically returned to the pool when the unique_ptr goes
+/// out of scope.
+inline temp_buffer get_pooled_temp_buffer() {
+    // Thread-local pool: simple freelist of 8 pointers
+    struct TempBufferPool {
+        arena_buffer<4096>* slots[8];
+        int count = 0;
+    };
+    thread_local TempBufferPool pool{};
 
-// Custom deleter that returns arena buffers to the thread-local pool instead
-// of destroying them, up to MAX_ARENA_BUFFER_POOL_SIZE.
-template <std::size_t StackSize_>
-struct pooled_temp_buffer_deleter_ {
-    void operator()(arena_buffer<StackSize_>* buf) const noexcept {
-        if (buf) {
+    if (pool.count > 0) {
+        --pool.count;
+        return temp_buffer(pool.slots[pool.count], [](arena_buffer<4096>* buf) {
             buf->reset();
-            if (fl::detail::g_arena_buffer_pool_details.pool.size() < fl::detail::MAX_ARENA_BUFFER_POOL_SIZE) {
-                fl::detail::g_arena_buffer_pool_details.pool.push_back(std::unique_ptr<arena_buffer<StackSize_>>(buf));
+            thread_local TempBufferPool& local_pool = pool;
+            if (local_pool.count < 8) {
+                local_pool.slots[local_pool.count++] = buf;
             } else {
                 delete buf;
             }
+        });
+    }
+    return temp_buffer(new arena_buffer<4096>(), [](arena_buffer<4096>* buf) {
+        buf->reset();
+        thread_local TempBufferPool& local_pool = pool;
+        if (local_pool.count < 8) {
+            local_pool.slots[local_pool.count++] = buf;
+        } else {
+            delete buf;
         }
-    }
-};
-
-using temp_buffer = std::unique_ptr<arena_buffer<fl::detail::DEFAULT_ARENA_STACK_SIZE>,
-                                     pooled_temp_buffer_deleter_<fl::detail::DEFAULT_ARENA_STACK_SIZE>>;
-
-// Returns an arena buffer from the thread-local pool, or creates a new one if
-// the pool is empty. The returned unique_ptr uses a custom deleter that
-// recycles the buffer back into the pool on release.
-inline temp_buffer get_pooled_temp_buffer() {
-    if (!fl::detail::g_arena_buffer_pool_details.pool.empty()) {
-        temp_buffer buf(fl::detail::g_arena_buffer_pool_details.pool.back().release(),
-                        pooled_temp_buffer_deleter_<fl::detail::DEFAULT_ARENA_STACK_SIZE>());
-        fl::detail::g_arena_buffer_pool_details.pool.pop_back();
-        return buf;
-    }
-    return temp_buffer(new arena_buffer<fl::detail::DEFAULT_ARENA_STACK_SIZE>(),
-                       pooled_temp_buffer_deleter_<fl::detail::DEFAULT_ARENA_STACK_SIZE>());
+    });
 }
 
-} // namespace fl
+}  // namespace fl
 
-#endif // FL_ARENA_HPP
+#endif  // FL_ARENA_HPP

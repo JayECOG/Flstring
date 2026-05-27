@@ -4,20 +4,21 @@
 #ifndef FL_IMMUTABLE_STRING_HPP
 #define FL_IMMUTABLE_STRING_HPP
 
-// Immutable string types for the FL library. Provides immutable_string_view for
-// lightweight non-owning access and immutable_string for thread-safe shared
-// ownership with atomic reference counting.
+/// @file Immutable string types.
+///
+/// Provides immutable_string_view for lightweight non-owning access and
+/// immutable_string for thread-safe shared ownership with atomic reference
+/// counting.
 
 #include "fl/config.hpp"
 #include "fl/alloc_hooks.hpp"
 #include "fl/debug/thread_safety.hpp"
 #include <atomic>
-#include <span>
 #include <cstring>
 #include <string>
 #include <algorithm>
 #include <functional>
-#include <iostream>
+#include <ostream>
 #include <iterator>
 #include <memory>
 #include <cassert>
@@ -25,15 +26,14 @@
 
 namespace fl {
 
-// Forward declarations.
-class string;
-class substring_view;
+// Forward declaration.
 class immutable_string;
 
-// Immutable string view optimised for use as map keys.
-//
-// This type provides an immutable, lightweight string view interface optimised
-// for use as keys in associative containers.
+/// Immutable string view optimised for use as map keys.
+///
+/// Provides an immutable, lightweight string view with a lazily computed
+/// FNV-1a hash.  Suitable for use in std::unordered_map and similar
+/// associative containers.
 class immutable_string_view {
 public:
     using value_type = char;
@@ -55,14 +55,11 @@ public:
     }
 
     const char* data() const noexcept { return _data; }
-    size_type size() const noexcept { return _length; }
+    size_type size()   const noexcept { return _length; }
     size_type length() const noexcept { return _length; }
-    bool empty() const noexcept { return _length == 0; }
+    bool      empty()  const noexcept { return _length == 0; }
 
-    char operator[](size_type pos) const noexcept {
-        assert(pos < _length);
-        return _data[pos];
-    }
+    char operator[](size_type pos) const noexcept { assert(pos < _length); return _data[pos]; }
 
     char at(size_type pos) const {
         if (pos >= _length) throw std::out_of_range("immutable_string_view::at");
@@ -70,10 +67,10 @@ public:
     }
 
     char front() const noexcept { return _data[0]; }
-    char back() const noexcept { return _data[_length - 1]; }
+    char back()  const noexcept { return _data[_length - 1]; }
 
     const char* begin() const noexcept { return _data; }
-    const char* end() const noexcept { return _data + _length; }
+    const char* end()   const noexcept { return _data + _length; }
 
     bool operator==(const immutable_string_view& other) const noexcept {
         if (_length != other._length) return false;
@@ -81,305 +78,277 @@ public:
         return std::memcmp(_data, other._data, _length) == 0;
     }
 
-    bool operator!=(const immutable_string_view& other) const noexcept { return !(*this == other); }
-
-    bool operator<(const immutable_string_view& other) const noexcept {
-        size_type min_len = std::min(_length, other._length);
-        int res = std::memcmp(_data, other._data, min_len);
-        if (res != 0) return res < 0;
-        return _length < other._length;
-    }
-
-    bool operator>(const immutable_string_view& other) const noexcept { return other < *this; }
-    bool operator<=(const immutable_string_view& other) const noexcept { return !(*this > other); }
-    bool operator>=(const immutable_string_view& other) const noexcept { return !(*this < other); }
-
-    bool contains(char c) const noexcept { return find(c) != npos; }
-    bool contains(const immutable_string_view& s) const noexcept { return find(s) != npos; }
-
-    size_type hash() const noexcept {
-        if (!_hash_computed) {
-            _hash = compute_hash(_data, _length);
-            _hash_computed = true;
+    /// Returns the cached FNV-1a hash, computing it lazily on first call.
+    /// Thread-safe via memory_order_acquire/release on _hash_computed.
+    std::size_t hash() const noexcept {
+        if (!_hash_computed.load(std::memory_order_acquire)) {
+            _hash = fnv1a_hash(_data, _length);
+            _hash_computed.store(true, std::memory_order_release);
         }
         return _hash;
     }
 
-    size_type find(char c, size_type pos = 0) const noexcept {
-        if (pos >= _length) return npos;
-        const char* p = static_cast<const char*>(std::memchr(_data + pos, c, _length - pos));
-        return p ? static_cast<size_type>(p - _data) : npos;
-    }
-
-    size_type find(const immutable_string_view& needle, size_type pos = 0) const noexcept {
-        if (pos > _length) return npos;
-        if (needle._length == 0) return pos;
-        if (needle._length > _length - pos) return npos;
-
-        auto it = std::search(begin() + pos, end(), needle.begin(), needle.end());
-        return it != end() ? static_cast<size_type>(it - begin()) : npos;
-    }
-
-    std::string to_string() const { return std::string(_data, _length); }
-
 private:
-    // FNV-1a hash for string data.
-    static size_type compute_hash(const char* s, size_type len) noexcept {
-        size_type h = 0x811c9dc5;
+    const char* _data;
+    size_type _length;
+    mutable std::size_t _hash;
+    mutable std::atomic<bool> _hash_computed;
+
+    static std::size_t fnv1a_hash(const char* data, size_type len) noexcept {
+        std::size_t h = 14695981039346656037ULL;
         for (size_type i = 0; i < len; ++i) {
-            h ^= static_cast<size_type>(s[i]);
-            h *= 0x01000193;
+            h ^= static_cast<unsigned char>(data[i]);
+            h *= 1099511628211ULL;
         }
         return h;
     }
-
-    const char* _data;
-    size_type _length;
-    mutable size_type _hash;
-    mutable bool _hash_computed;
 };
 
-// Thread-safe immutable string with atomic reference counting.
-//
-// Thread-safety guarantees:
-// - All operations are thread-safe and lock-free.
-// - Concurrent reads from multiple threads: safe.
-// - Concurrent copies across threads: safe.
-// - No mutation operations exist; immutability is enforced at compile time.
-//
-// Performance characteristics:
-// - Copy: O(1) atomic increment, lock-free.
-// - Destruction: O(1) atomic decrement plus conditional O(n) deallocation.
-// - Memory overhead: sizeof(std::atomic<size_t>) + 2*sizeof(size_t) + overhead.
-// - Cache-line considerations: control block is aligned to avoid false sharing.
-// - Hash computation: cached in control block for O(1) map lookups after first
-//   call to hash().
+// -- immutable_string -- atomic RC, cached hash, O(1) copy --------------------
+
+/// Thread-safe immutable string with atomic reference counting.
+///
+/// Copies are O(1) — they increment the reference count atomically.
+/// The control block is cache-line-aligned (alignas(64)) to prevent false
+/// sharing.  The FNV-1a hash is computed lazily and cached.
+///
+/// @note No mutation operations are exposed.  Immutability is enforced at
+/// compile time.
 class immutable_string {
-    struct control_block {
-        alignas(64) std::atomic<std::size_t> refcount;
-        std::size_t size;
-        mutable std::size_t cached_hash;
-        mutable std::atomic<bool> hash_computed;
-        char buf[1];  // Flexible array member.
-
-        const char* data() const noexcept { return buf; }
-    };
-
-    control_block* _ctrl;
-#if FL_DEBUG_THREAD_SAFETY
-    mutable debug::thread_access_tracker _tracker;
-#endif
-
 public:
     using value_type = char;
     using size_type = std::size_t;
-    using const_reference = const char&;
-    using const_iterator = const char*;
 
-    immutable_string() noexcept : _ctrl(nullptr) {}
+    immutable_string() noexcept;
+    immutable_string(const char* cstr);
+    immutable_string(const char* data, size_type len);
+    explicit immutable_string(const std::string& str);
+    immutable_string(const immutable_string& other) noexcept;
+    immutable_string(immutable_string&& other) noexcept;
+    immutable_string& operator=(const immutable_string& other) noexcept;
+    immutable_string& operator=(immutable_string&& other) noexcept;
+    ~immutable_string();
 
-    explicit immutable_string(const char* str) : _ctrl(nullptr) {
-        if (str) {
-            allocate_and_init(str, std::strlen(str));
-        }
-    }
+    // -- Observers -------------------------------------------------------
 
-    immutable_string(const char* str, size_type len) : _ctrl(nullptr) {
-        if (str || len == 0) {
-            allocate_and_init(str, len);
-        }
-    }
+    const char* data()    const noexcept;
+    size_type   size()    const noexcept;
+    size_type   length()  const noexcept;
+    bool        empty()   const noexcept;
+    char        operator[](size_type pos) const noexcept;
+    char        at(size_type pos) const;
 
-    immutable_string(immutable_string_view view) : _ctrl(nullptr) {
-        if (!view.empty()) {
-            allocate_and_init(view.data(), view.size());
-        }
-    }
+    const char* begin()   const noexcept { return data(); }
+    const char* end()     const noexcept { return data() + size(); }
 
-    explicit immutable_string(const std::string& str) : _ctrl(nullptr) {
-        allocate_and_init(str.data(), str.size());
-    }
+    explicit operator std::string_view() const noexcept;
+    explicit operator std::string() const;
 
-    // Thread-safety: safe to copy concurrently from multiple threads.
-    // Relaxed ordering suffices because the caller already holds a live reference.
-    immutable_string(const immutable_string& other) noexcept : _ctrl(other._ctrl) {
-        if (_ctrl) {
-            _ctrl->refcount.fetch_add(1, std::memory_order_relaxed);
-        }
-    }
+    /// Returns the cached FNV-1a hash.  Thread-safe.
+    std::size_t hash() const noexcept;
 
-    immutable_string(immutable_string&& other) noexcept : _ctrl(other._ctrl) {
-        other._ctrl = nullptr;
-#if FL_DEBUG_THREAD_SAFETY
-        other._tracker.mark_moved(FL_LOC);
-#endif
-    }
+    // -- Friends ---------------------------------------------------------
 
-    // The acq_rel decrement synchronises with the acquire fence so that all
-    // prior accesses in other threads are visible before deallocation.
-    ~immutable_string() noexcept {
-        if (_ctrl) {
-            if (_ctrl->refcount.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-                std::atomic_thread_fence(std::memory_order_acquire);
-                destroy_control_block(_ctrl);
-            }
-        }
-    }
+    friend bool operator==(const immutable_string& lhs, const immutable_string& rhs) noexcept;
+    friend bool operator!=(const immutable_string& lhs, const immutable_string& rhs) noexcept;
+    friend bool operator<(const immutable_string& lhs, const immutable_string& rhs) noexcept;
 
-    immutable_string& operator=(const immutable_string& other) noexcept {
-        if (this != &other) {
-            if (other._ctrl) {
-                other._ctrl->refcount.fetch_add(1, std::memory_order_relaxed);
-            }
-            if (_ctrl) {
-                if (_ctrl->refcount.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-                    std::atomic_thread_fence(std::memory_order_acquire);
-                    destroy_control_block(_ctrl);
-                }
-            }
-            _ctrl = other._ctrl;
-        }
-        return *this;
-    }
-
-    immutable_string& operator=(immutable_string&& other) noexcept {
-        if (this != &other) {
-            if (_ctrl) {
-                if (_ctrl->refcount.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-                    std::atomic_thread_fence(std::memory_order_acquire);
-                    destroy_control_block(_ctrl);
-                }
-            }
-            _ctrl = other._ctrl;
-            other._ctrl = nullptr;
-#if FL_DEBUG_THREAD_SAFETY
-            other._tracker.mark_moved(FL_LOC);
-#endif
-        }
-        return *this;
-    }
-
-    // Observers.
-
-    [[nodiscard]] const char* data() const noexcept {
-#if FL_DEBUG_THREAD_SAFETY
-        auto g = _tracker.begin_read(FL_LOC);
-#endif
-        return _ctrl ? _ctrl->data() : "";
-    }
-
-    [[nodiscard]] size_type size() const noexcept {
-#if FL_DEBUG_THREAD_SAFETY
-        auto g = _tracker.begin_read(FL_LOC);
-#endif
-        return _ctrl ? _ctrl->size : 0;
-    }
-
-    [[nodiscard]] size_type length() const noexcept { return size(); }
-    [[nodiscard]] bool empty() const noexcept { return _ctrl == nullptr; }
-
-    [[nodiscard]] char operator[](std::size_t pos) const noexcept {
-        return view()[pos];
-    }
-
-    [[nodiscard]] immutable_string_view view() const noexcept {
-#if FL_DEBUG_THREAD_SAFETY
-        auto g = _tracker.begin_read(FL_LOC);
-#endif
-        return _ctrl ? immutable_string_view(_ctrl->data(), _ctrl->size) : immutable_string_view();
-    }
-
-    [[nodiscard]] std::string to_string() const { return view().to_string(); }
-
-    [[nodiscard]] operator immutable_string_view() const noexcept { return view(); }
-
-    // Hash computation is cached in the control block. The acquire/release pair
-    // on hash_computed ensures the cached_hash write is visible to all
-    // subsequent readers.
-    [[nodiscard]] size_type hash() const noexcept {
-        if (!_ctrl) return immutable_string_view().hash();
-
-        if (!_ctrl->hash_computed.load(std::memory_order_acquire)) {
-            _ctrl->cached_hash = immutable_string_view(_ctrl->data(), _ctrl->size).hash();
-            _ctrl->hash_computed.store(true, std::memory_order_release);
-        }
-        return _ctrl->cached_hash;
+    friend void swap(immutable_string& lhs, immutable_string& rhs) noexcept {
+        std::swap(lhs._ctrl, rhs._ctrl);
     }
 
 private:
-    void allocate_and_init(const char* s, size_type len) {
-        size_type bytes = sizeof(control_block) + len;
-        void* mem = fl::allocate_bytes(bytes);
-        if (!mem) throw std::bad_alloc();
+    /// Control block: reference count, size, data, and cached hash.
+    /// Aligned to 64 bytes to avoid false sharing between threads.
+    struct alignas(64) control_block {
+        std::atomic<std::size_t> refs;
+        std::size_t size;
+        std::size_t hash;
+        std::atomic<bool> hash_computed;
+        char data[1];  // Flexible-array-like; actual allocation is sizeof(ctrl)+size.
+    };
 
-        _ctrl = static_cast<control_block*>(mem);
-        new (&_ctrl->refcount) std::atomic<std::size_t>(1);
-        _ctrl->size = len;
-        _ctrl->cached_hash = 0;
-        new (&_ctrl->hash_computed) std::atomic<bool>(false);
-        if (s && len > 0) {
-            std::memcpy(_ctrl->buf, s, len);
+    control_block* _ctrl;
+
+    static control_block* allocate_ctrl(const char* s, size_type len);
+    static void          deallocate_ctrl(control_block* ctrl) noexcept;
+
+    static std::size_t fnv1a_hash(const char* s, size_type len) noexcept {
+        std::size_t h = 14695981039346656037ULL;
+        for (size_type i = 0; i < len; ++i) {
+            h ^= static_cast<unsigned char>(s[i]);
+            h *= 1099511628211ULL;
         }
-        _ctrl->buf[len] = '\0';
-    }
-
-    void destroy_control_block(control_block* cb) {
-        cb->hash_computed.~atomic();
-        cb->refcount.~atomic();
-        fl::deallocate_bytes(cb, sizeof(control_block) + cb->size);
+        return h;
     }
 };
 
-// Alias for compatibility with previous versions.
-using owning_immutable_string = immutable_string;
+// -- immutable_string implementation -----------------------------------------
 
-// Operators and functors.
+inline immutable_string::immutable_string() noexcept : _ctrl(nullptr) {}
+
+inline immutable_string::immutable_string(const char* cstr)
+    : _ctrl(cstr ? allocate_ctrl(cstr, std::strlen(cstr)) : nullptr) {}
+
+inline immutable_string::immutable_string(const char* data, size_type len)
+    : _ctrl(data ? allocate_ctrl(data, len) : nullptr) {}
+
+inline immutable_string::immutable_string(const std::string& str)
+    : _ctrl(allocate_ctrl(str.data(), str.size())) {}
+
+inline immutable_string::immutable_string(const immutable_string& other) noexcept
+    : _ctrl(other._ctrl) {
+    if (_ctrl) {
+        _ctrl->refs.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+
+inline immutable_string::immutable_string(immutable_string&& other) noexcept
+    : _ctrl(other._ctrl) {
+    other._ctrl = nullptr;
+}
+
+inline immutable_string& immutable_string::operator=(const immutable_string& other) noexcept {
+    if (this != &other) {
+        // Decrement current
+        if (_ctrl && _ctrl->refs.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+            deallocate_ctrl(_ctrl);
+        }
+        _ctrl = other._ctrl;
+        if (_ctrl) {
+            _ctrl->refs.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+    return *this;
+}
+
+inline immutable_string& immutable_string::operator=(immutable_string&& other) noexcept {
+    if (this != &other) {
+        if (_ctrl && _ctrl->refs.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+            deallocate_ctrl(_ctrl);
+        }
+        _ctrl = other._ctrl;
+        other._ctrl = nullptr;
+    }
+    return *this;
+}
+
+inline immutable_string::~immutable_string() {
+    if (_ctrl && _ctrl->refs.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+        deallocate_ctrl(_ctrl);
+    }
+}
+
+// -- Observers ---------------------------------------------------------------
+
+inline const char* immutable_string::data()   const noexcept { return _ctrl ? _ctrl->data : ""; }
+inline auto immutable_string::size()            const noexcept -> size_type { return _ctrl ? _ctrl->size : 0; }
+inline auto immutable_string::length()          const noexcept -> size_type { return size(); }
+inline bool immutable_string::empty()           const noexcept { return size() == 0; }
+
+inline char immutable_string::operator[](size_type pos) const noexcept {
+    return data()[pos];
+}
+
+inline char immutable_string::at(size_type pos) const {
+    if (pos >= size()) throw std::out_of_range("immutable_string::at");
+    return data()[pos];
+}
+
+// -- Conversion --------------------------------------------------------------
+
+inline immutable_string::operator std::string_view() const noexcept {
+    return std::string_view(data(), size());
+}
+
+inline immutable_string::operator std::string() const {
+    return std::string(data(), size());
+}
+
+// -- Hash --------------------------------------------------------------------
+
+inline std::size_t immutable_string::hash() const noexcept {
+    if (!_ctrl) return 0;
+    if (!_ctrl->hash_computed.load(std::memory_order_acquire)) {
+        _ctrl->hash = fnv1a_hash(_ctrl->data, _ctrl->size);
+        _ctrl->hash_computed.store(true, std::memory_order_release);
+    }
+    return _ctrl->hash;
+}
+
+// -- Allocation helpers ------------------------------------------------------
+
+inline immutable_string::control_block*
+immutable_string::allocate_ctrl(const char* s, size_type len) {
+    const size_type alloc_size = sizeof(control_block) + len;  // +1 for NUL is included in data[1]
+    void* mem = fl::allocate_bytes_aligned(alloc_size, alignof(control_block));
+    auto* ctrl = ::new (mem) control_block;
+    ctrl->refs.store(1, std::memory_order_relaxed);
+    ctrl->size = len;
+    ctrl->hash = 0;
+    ctrl->hash_computed.store(false, std::memory_order_release);
+    std::memcpy(ctrl->data, s, len);
+    ctrl->data[len] = '\0';
+    return ctrl;
+}
+
+inline void immutable_string::deallocate_ctrl(control_block* ctrl) noexcept {
+    ctrl->~control_block();
+    fl::deallocate_bytes_aligned(ctrl, sizeof(control_block) + ctrl->size, alignof(control_block));
+}
+
+// -- Comparison operators ----------------------------------------------------
 
 inline bool operator==(const immutable_string& lhs, const immutable_string& rhs) noexcept {
-    if (&lhs == &rhs) return true;
-    return lhs.view() == rhs.view();
+    if (lhs._ctrl == rhs._ctrl) return true;
+    if (!lhs._ctrl || !rhs._ctrl) return false;
+    return lhs._ctrl->size == rhs._ctrl->size &&
+           std::memcmp(lhs._ctrl->data, rhs._ctrl->data, lhs._ctrl->size) == 0;
 }
 
 inline bool operator!=(const immutable_string& lhs, const immutable_string& rhs) noexcept {
     return !(lhs == rhs);
 }
 
-inline bool operator==(const immutable_string_view& lhs, const char* rhs) noexcept {
-    return lhs == immutable_string_view(rhs);
+inline bool operator<(const immutable_string& lhs, const immutable_string& rhs) noexcept {
+    if (!lhs._ctrl) return rhs._ctrl != nullptr;
+    if (!rhs._ctrl) return false;
+    const std::size_t min_len = (std::min)(lhs._ctrl->size, rhs._ctrl->size);
+    int cmp = std::memcmp(lhs._ctrl->data, rhs._ctrl->data, min_len);
+    if (cmp != 0) return cmp < 0;
+    return lhs._ctrl->size < rhs._ctrl->size;
 }
 
-inline bool operator==(const char* lhs, const immutable_string_view& rhs) noexcept {
-    return immutable_string_view(lhs) == rhs;
-}
+// -- Hash / equality functors for associative containers --------------------
 
-inline bool operator==(const immutable_string& lhs, const immutable_string_view& rhs) noexcept {
-    return lhs.view() == rhs;
-}
-
-inline bool operator==(const immutable_string_view& lhs, const immutable_string& rhs) noexcept {
-    return lhs == rhs.view();
-}
-
+/// FNV-1a hash functor for immutable_string, for use in std::unordered_map.
 struct immutable_string_hash {
-    std::size_t operator()(const immutable_string_view& v) const noexcept { return v.hash(); }
+    using is_transparent = void;
     std::size_t operator()(const immutable_string& s) const noexcept { return s.hash(); }
+    std::size_t operator()(const immutable_string_view& v) const noexcept { return v.hash(); }
+    std::size_t operator()(std::string_view sv) const noexcept {
+        std::size_t h = 14695981039346656037ULL;
+        for (char c : sv) { h ^= static_cast<unsigned char>(c); h *= 1099511628211ULL; }
+        return h;
+    }
 };
 
+/// Equality functor for immutable_string, for use in std::unordered_map.
 struct immutable_string_equal {
     using is_transparent = void;
-    bool operator()(const immutable_string_view& lhs, const immutable_string_view& rhs) const noexcept { return lhs == rhs; }
-    bool operator()(const immutable_string& lhs, const immutable_string& rhs) const noexcept { return lhs == rhs; }
+    bool operator()(const immutable_string& a, const immutable_string& b) const noexcept { return a == b; }
+    bool operator()(const immutable_string& a, std::string_view b) const noexcept {
+        return a.size() == b.size() && std::memcmp(a.data(), b.data(), a.size()) == 0;
+    }
+    bool operator()(std::string_view a, const immutable_string& b) const noexcept {
+        return a.size() == b.size() && std::memcmp(a.data(), b.data(), a.size()) == 0;
+    }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const immutable_string_view& v) {
-    if (v.empty()) return os;
-    return os.write(v.data(), static_cast<std::streamsize>(v.size()));
-}
+/// Non-owning immutable string key with cached hash.
+/// Compatible alias kept for API stability.
+using owning_immutable_string = immutable_string;
 
-inline std::ostream& operator<<(std::ostream& os, const immutable_string& s) {
-    return os << s.view();
-}
+}  // namespace fl
 
-} // namespace fl
-
-#endif // FL_IMMUTABLE_STRING_HPP
+#endif  // FL_IMMUTABLE_STRING_HPP

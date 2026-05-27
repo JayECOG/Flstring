@@ -2,14 +2,13 @@
 
 ## What is fl?
 
-The fl library stands for **Forever Lightweight**. This name encapsulates its core
-mission and design ethos: to provide fundamental string and data manipulation utilities
-that are exceptionally efficient, have minimal overhead, and are designed for longevity
-and adaptability across C++ projects.
+The letters **fl** stand for **Forever Lightweight**. This is not merely the name of a single library — it is a commitment that every library bearing the `fl` prefix must uphold. Whether the library provides strings, memory allocation, formatting, or any other utility, it should be exceptionally efficient, impose minimal overhead, and be designed for longevity and adaptability across C++ projects.
+
+The reference implementation of this philosophy is the `fl::string` library, along with its companion components (`fl::rope`, `fl::string_builder`, `fl::arena_allocator`, `fl::format`). These serve as the practical embodiment of what "Forever Lightweight" means in real code.
 
 ## Motivation
 
-The genesis of fl stemmed from a common challenge in C++ development: the need for
+The genesis of fl grew from a common challenge in C++ development: the need for
 high-performance, low-resource string and memory management without sacrificing
 developer ergonomics. Existing solutions often presented trade-offs:
 
@@ -23,7 +22,10 @@ developer ergonomics. Existing solutions often presented trade-offs:
   insufficient.
 
 fl emerged as a response to these needs: a lean, self-contained, header-only C++20
-toolkit that integrates into projects without imposing external dependencies.
+toolkit that integrates into projects without imposing external dependencies. Any
+library that wishes to carry the `fl` prefix should be judged against the same
+standards: it must solve its problem with minimal overhead, no compulsory
+dependencies, and a clear performance justification for every feature it adds.
 
 ## Design Principles
 
@@ -96,6 +98,8 @@ fl is designed with an open architecture:
 ## Summary
 
 fl is a commitment to building software that performs optimally and respects the
-computational resources it consumes. Every design decision prioritizes measurable
+computational resources it consumes. Every design decision prioritises measurable
 performance over theoretical elegance, while maintaining an API that C++ developers
-find familiar and productive.
+find familiar and productive. This commitment extends beyond the string library: any
+component that carries the `fl` prefix must meet the same bar for efficiency,
+simplicity, and longevity.

@@ -445,7 +445,7 @@ allocation instead of using the SSO buffer.
 3. **Run relevant benchmarks:** If your change affects performance, run the relevant benchmarks and note the results.
 4. **Check for warnings:** Build in Release mode and verify zero compiler warnings.
 5. **Sign off every commit:** Ensure every commit in your branch carries a `Signed-off-by` trailer
-   certifying the Developer Certificate of Origin (see [Section 15](#15-developer-certificate-of-origin-dco)):
+   certifying the Developer Certificate of Origin (see the [official DCO](https://developercertificate.org)):
    ```
    Signed-off-by: Your Full Name <your.email@example.com>
    ```
@@ -615,11 +615,9 @@ New benchmarks should be placed in the `benchmarks/` directory:
 
 ## 14. License
 
-The `fl` library is licensed under the **FL License** (see [LICENSE.txt](LICENSE.txt)).
+The `fl` library is licensed under the **FL License** (see [LICENSE](LICENSE)).
 
-By submitting a contribution (pull request, patch, or any other form), you agree that your contribution is licensed under the same FL License terms. As stated in Section 5 of the FL License:
-
-> Unless You explicitly state otherwise, any Contribution intentionally submitted for inclusion in the Work by You to the Licensor shall be under the terms and conditions of this License, without any additional terms or conditions.
+By submitting a contribution (pull request, patch, or any other form), you agree that your contribution is licensed under the same FL License terms.
 
 All new source files must include the standard license boilerplate at the top:
 
@@ -632,72 +630,45 @@ All new source files must include the standard license boilerplate at the top:
 
 ## 15. Developer Certificate of Origin (DCO)
 
-Every commit submitted to the Project **must** carry a `Signed-off-by` trailer certifying the
-[Developer Certificate of Origin](DCO.md). This is a lightweight, per-commit provenance record
-that asserts you have the legal right to submit the Contribution under the FL Licence.
+This project uses the **Developer Certificate of Origin (DCO)**, version 1.1, as published by the
+Linux Foundation at [developercertificate.org](https://developercertificate.org).
 
-### What the Sign-off Certifies
+The DCO is a per-commit certification that the contributor has the right to submit the code under
+the project's licence. It is not a legal agreement — it is a simple statement of provenance.
 
-By adding the trailer, you certify (in summary) that:
+### How to Certify
 
-- The Contribution is your own original work, **or** is based on prior work available under a
-  compatible open-source licence.
-- You have the legal authority to submit it — including any required Employer consent.
-- You have disclosed any patent claims you are aware of that could cover the Contribution.
-- You understand the Contribution may be relicensed by the Copyright Holder under a future
-  version of the FL Licence.
-
-Read [DCO.md](DCO.md) in full before signing off for the first time.
-
-### Adding the Sign-off
-
-Append the following trailer to every commit message, preceded by a blank line:
+Every commit in a pull request must include a `Signed-off-by` trailer:
 
 ```
 Signed-off-by: Your Full Name <your.email@example.com>
 ```
 
-Git can append this automatically with the `-s` flag:
+By adding this trailer, you certify that you have read and agree to the full DCO text at
+[https://developercertificate.org](https://developercertificate.org).
 
-```bash
-git commit -s -m "feat: describe your change"
-```
+### What the DCO Says
 
-Or configure an alias:
+The DCO certifies that:
 
-```bash
-git config --global alias.cs "commit -s"
-```
+1. **You created the contribution** and have the right to submit it under the project's open-source
+   licence; **or**
+2. **The contribution is based on previous work** that you have permission to use under a compatible
+   licence; **or**
+3. **The contribution was provided to you** by someone else who certified (1) or (2), and you have
+   not modified it; **or**
+4. **You have obtained the contribution** from a public domain or similarly permissive source.
 
-### Local Pre-commit Hook (Optional)
+### Automatic DCO Checking
 
-To have Git automatically validate the `Signed-off-by` trailer **before** committing, you can install
-the local pre-commit hook provided in the repository:
-
-```bash
-cp scripts/pre-commit-dco .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
-```
-
-Or, to make the hook apply to all developers who clone the repository, configure git to look for
-hooks in the `scripts/` directory:
-
-```bash
-git config core.hooksPath scripts
-```
-
-If you accidentally commit without the sign-off, you can amend and sign the last commit:
+Pull requests are checked automatically by a DCO bot. If any commit in your PR lacks a valid
+`Signed-off-by` trailer, the bot will flag it and the PR will not be merged until the issue is
+resolved. To fix a missing sign-off, you can amend the commit:
 
 ```bash
 git commit --amend -s
 git push --force-with-lease
 ```
-
-### Retroactive Certification
-
-If you have already committed without a Sign-off and wish to certify those commits retroactively,
-contact the maintainer with a written statement as described in Section 6 of [DCO.md](DCO.md).
-Do **not** amend or rebase merged commits.
 
 ---
 
@@ -734,19 +705,6 @@ which Contributions are accepted. It provides:
 4. The Copyright Holder will confirm acceptance. Do not open a substantive pull request until
    acceptance is confirmed for first-time and entity contributors.
 
-### Relationship between DCO and CLA
-
-The DCO and CLA are complementary instruments:
-
-| Instrument | Scope                                | Per-Commit? |
-| :--------- | :----------------------------------- | :---------- |
-| DCO        | Per-commit provenance certification  | Yes         |
-| CLA        | Formal licence grant and IP warranty | No (once)   |
-
-Both are required. The DCO Sign-off on each commit confirms that the specific Contribution was
-made in accordance with both the DCO and the CLA.
-
----
 
 ## Project Structure Reference
 
@@ -768,25 +726,78 @@ Flstring/
 │       ├── synchronized_string.hpp    # Alias (American English spelling)
 │       ├── alloc_hooks.hpp            # Allocation hooks
 │       ├── profiling.hpp              # Profiling utilities
-│       └── debug/
-│           └── thread_safety.hpp      # Thread-safety debug instrumentation
+│       ├── color.hpp                  # Terminal colour/style support (ANSI)
+│       ├── chrono_format.hpp          # std::chrono duration/time_point formatting
+│       ├── compat/
+│       │   └── string_view.hpp        # Compatibility string_view wrapper
+│       ├── debug/
+│       │   └── thread_safety.hpp      # Thread-safety debug instrumentation
+│       └── detail/
+│           └── float_format.hpp       # Floating-point formatting internals
 ├── tests/                             # Unit tests (registered with CTest)
+│   ├── comprehensive_bench.cpp
+│   ├── fl_string_vs_std_full_output.txt
+│   ├── fl_string_vs_std_full_test.cpp
+│   ├── reproduce_missing_find.cpp
+│   ├── rope_linear_access_vs_std.cpp
+│   ├── test_adaptive_find.cpp
+│   ├── test_comprehensive_apis.cpp
+│   ├── test_new_apis.cpp
+│   └── test_rope_access_index.cpp
 ├── benchmarks/                        # Performance benchmarks
+│   ├── aslr_construction_bench.cpp
+│   ├── comprehensive_bench.cpp
+│   ├── cross_library_bench.cpp
+│   ├── find_haystack_bench.cpp
+│   ├── multi_standard_bench.cpp
+│   ├── performance_optimisation_benchmarks.cpp
+│   ├── pmr_vs_pool_bench.cpp
+│   ├── rope_rebalance_bench.cpp
+│   ├── rope_vs_std_string_benchmarks.cpp
+│   ├── string_vs_std_bench.cpp
+│   └── folly_comparison/
+│       └── benchmark_folly.cpp
 ├── examples/                          # Compilable usage examples
+│   ├── example_advanced_types.cpp
+│   ├── example_arena.cpp
+│   ├── example_basic.cpp
+│   ├── example_builder.cpp
+│   ├── example_formatting.cpp
+│   └── thread_safety_patterns.cpp
 ├── docs/                              # Project documentation
+│   ├── API.md
+│   ├── Developer_Guide.md
+│   ├── Examples.md
+│   ├── Features.md
+│   ├── Formatting.md
+│   ├── Getting_Started.md
+│   ├── Issue_Triage_Playbook.md
+│   ├── Performance.md
+│   ├── PHILOSOPHY.md
+│   ├── README.md
+│   ├── Release_Notes_2.0.0.md
+│   ├── fl_2_0_0_canonical_baseline.txt
+│   └── templates/
+│       ├── API_Compatibility_Report_Template.md
+│       ├── Bug_Triage_Report_Template.md
+│       ├── Performance_Regression_Report_Template.md
+│       └── Release_Readiness_Report_Template.md
 ├── .github/
 │   ├── workflows/
-│   │   ├── ci.yml                     # GitHub Actions CI pipeline
+│   │   └── ci.yml                     # GitHub Actions CI pipeline
 │   ├── ISSUE_TEMPLATE/
 │   │   ├── bug_report.md              # Bug report template
 │   │   ├── feature_request.md         # Feature request template
 │   │   └── performance_issue.md       # Performance issue template
 │   └── PULL_REQUEST_TEMPLATE.md       # Pull request template
-├── CMakeLists.txt                     # Root build configuration
-├── LICENSE.txt                        # FL License
-├── DCO.md                             # Developer Certificate of Origin
+├── .gitignore                         # Git ignore rules
+├── CHANGELOG.md                       # Release changelog
 ├── CLA.md                             # Contributor Licence Agreement
-└── CONTRIBUTING.md                    # This file
+├── CMakeLists.txt                     # Root build configuration
+├── CODE_OF_CONDUCT.md                 # Code of Conduct
+├── CONTRIBUTING.md                    # This file
+├── LICENSE                            # FL License
+└── SECURITY.md                        # Security policy
 ```
 
 ---

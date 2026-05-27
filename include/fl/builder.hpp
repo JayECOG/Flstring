@@ -1,33 +1,36 @@
 // Copyright (c) 2026 Jayden Emmanuel.
 // Licensed under the FL License. See LICENSE.txt for details.
 
+/// @file builder.hpp
+/// Move-friendly string builder with capacity management and configurable growth
+/// policies for efficient construction of fl::string instances.
+
 #ifndef FL_BUILDER_HPP
 #define FL_BUILDER_HPP
 
-// Move-friendly string builder with capacity management and configurable growth
-// policies for efficient construction of fl::string instances.
-
+#include "fl/config.hpp"
 #include "string.hpp"
-#include <concepts>
-#include <span>
 #include "arena.hpp"
 #include <cstring>
+#include <string_view>
 #include <utility>
 #include <algorithm>
 #include "fl/profiling.hpp"
 
 namespace fl {
 
-// Growth policy for string builders.
+/// Growth policy for string builders.
 enum class growth_policy {
     linear,      // Grow by constant amount.
     exponential, // Grow by multiplier (1.5x or 2x).
 };
 
-// A string builder that accumulates characters into a contiguous buffer and
-// produces an fl::string via build(). The builder owns its buffer and supports
-// move semantics but not copying. A configurable growth policy controls how
-// the internal buffer expands when more space is needed.
+/**
+ * A string builder that accumulates characters into a contiguous buffer and
+ * produces an fl::string via build(). The builder owns its buffer and supports
+ * move semantics but not copying. A configurable growth policy controls how
+ * the internal buffer expands when more space is needed.
+ */
 class string_builder {
 public:
     using size_type = std::size_t;
@@ -92,9 +95,11 @@ public:
         return *this;
     }
 
-    // Reserves capacity assuming the given number of elements, each of
-    // avg_element_size bytes. Useful when the element count is known ahead of
-    // time but individual sizes vary.
+    /**
+     * Reserves capacity for the given number of elements, each of
+     * avg_element_size bytes. Useful when the element count is known ahead of
+     * time but individual sizes vary.
+     */
     string_builder& reserve_for_elements(size_type element_count, size_type avg_element_size = 16) noexcept {
         constexpr size_type max_size = static_cast<size_type>(-1);
         if (element_count > max_size / avg_element_size) {
@@ -141,40 +146,47 @@ public:
         return append(sv.data(), sv.size());
     }
 
-    string_builder& append(std::span<const char> s) noexcept {
-        return append(s.data(), s.size());
+    // Appends a range from random-access iterators (fast path)
+    template <typename RandomAccessIter>
+    typename std::enable_if<
+        std::is_base_of<std::random_access_iterator_tag,
+                        typename std::iterator_traits<RandomAccessIter>::iterator_category>::value,
+        string_builder&>::type
+    append(RandomAccessIter first, RandomAccessIter last) noexcept {
+        size_type count = static_cast<size_type>(std::distance(first, last));
+        if (FL_UNLIKELY(count == 0)) return *this;
+
+        size_type new_size = _size + count;
+        if (FL_UNLIKELY(new_size > _capacity)) {
+            _grow_for_size(new_size);
+        }
+
+        char* ptr = _buffer + _size;
+        while (first != last) {
+            *ptr++ = *first++;
+        }
+        _size = new_size;
+        return *this;
     }
 
-    // Appends a range given by iterators. For random-access iterators the
-    // required space is reserved in one shot; for input iterators each element
-    // is appended individually.
-    template <std::input_iterator InputIter>
-    string_builder& append(InputIter first, InputIter last) noexcept {
-        if constexpr (std::random_access_iterator<InputIter>) {
-            size_type count = static_cast<size_type>(std::distance(first, last));
-            if (count == 0) return *this;
-
-            size_type new_size = _size + count;
-            if (new_size > _capacity) {
-                _grow_for_size(new_size);
-            }
-
-            char* ptr = _buffer + _size;
-            while (first != last) {
-                *ptr++ = *first++;
-            }
-            _size = new_size;
-        } else {
-            while (first != last) {
-                append(*first);
-                ++first;
-            }
+    // Appends a range from input iterators (slow path, catches all other iterators)
+    template <typename InputIter>
+    typename std::enable_if<
+        std::is_base_of<std::input_iterator_tag,
+                        typename std::iterator_traits<InputIter>::iterator_category>::value &&
+        !std::is_base_of<std::random_access_iterator_tag,
+                         typename std::iterator_traits<InputIter>::iterator_category>::value,
+        string_builder&>::type
+    append(InputIter first, InputIter last) noexcept {
+        while (first != last) {
+            append(*first);
+            ++first;
         }
         return *this;
     }
 
-    string_builder& append(char ch) noexcept {
-        if (_size >= _capacity) {
+    FL_INLINE string_builder& append(char ch) noexcept {
+        if (FL_UNLIKELY(_size >= _capacity)) {
             _grow_for_size(_size + 1);
         }
         _buffer[_size++] = ch;
@@ -186,11 +198,11 @@ public:
     string_builder& operator+=(char ch) noexcept { return append(ch); }
     string_builder& operator+=(std::string_view sv) noexcept { return append(sv); }
 
-    string_builder& append_repeat(char ch, size_type count) noexcept {
-        if (count == 0) return *this;
+    FL_INLINE string_builder& append_repeat(char ch, size_type count) noexcept {
+        if (FL_UNLIKELY(count == 0)) return *this;
 
         size_type new_size = _size + count;
-        if (new_size > _capacity) {
+        if (FL_UNLIKELY(new_size > _capacity)) {
             _grow_for_size(new_size);
         }
 
@@ -199,51 +211,102 @@ public:
         return *this;
     }
 
-    // Appends a formatted string by replacing the first "{}" placeholder with
-    // the string representation of the given value. Supports integral,
-    // floating-point, and string_view-convertible types.
+    /// @deprecated Use fl::format_to() instead, which supports full format
+    /// specifications (width, alignment, precision, type specifiers) rather
+    /// than simple `{}` placeholder replacement.
     template <typename T>
-    requires (std::integral<T> || std::floating_point<T> || std::convertible_to<T, std::string_view>)
-    string_builder& append_formatted(const char* fmt, T value) noexcept {
-        // Find and replace first {} with value representation.
-        const char* p = fmt;
-        while (*p) {
-            if (*p == '{' && *(p + 1) == '}') {
-                size_type prefix_len = p - fmt;
-                append(fmt, prefix_len);
-
-                char temp[64];
-                size_type len = 0;
-
-                if constexpr (std::convertible_to<T, std::string_view>) {
-                    std::string_view sv = value;
-                    append(sv.data(), sv.size());
-                } else if constexpr (std::integral<T>) {
-                    if constexpr (std::signed_integral<T>) {
-                        len = _format_int64(temp, sizeof(temp), static_cast<int64_t>(value));
-                    } else {
-                        len = _format_uint64(temp, sizeof(temp), static_cast<uint64_t>(value));
-                    }
-                    append(temp, len);
-                } else if constexpr (std::floating_point<T>) {
-                    len = static_cast<size_type>(std::snprintf(temp, sizeof(temp), "%g", static_cast<double>(value)));
-                    if (len > 0) append(temp, len);
-                }
-
-                append(p + 2);
-                return *this;
-            }
-            ++p;
+    typename std::enable_if<std::is_convertible<T, std::string_view>::value,
+                            string_builder&>::type
+    append_formatted(std::string_view fmt, T value) noexcept {
+        const auto placeholder = fmt.find(std::string_view("{}"));
+        if (placeholder == std::string_view::npos) {
+            return append(fmt);
         }
-        // No placeholder found; append the format string as-is.
-        append(fmt);
+
+        append(fmt.data(), placeholder);
+        std::string_view sv = value;
+        append(sv);
+        append(fmt.data() + placeholder + 2, fmt.size() - placeholder - 2);
         return *this;
     }
 
-    // Builds the final fl::string from the accumulated content. Transfers
-    // buffer ownership to the returned string for large results and uses SSO
-    // for small ones. The builder is left in an empty, valid state. Must be
-    // called on an rvalue (e.g., std::move(builder).build()).
+    template <typename T>
+    typename std::enable_if<std::is_convertible<T, std::string_view>::value,
+                            string_builder&>::type
+    append_formatted(const char* fmt, T value) noexcept {
+        return append_formatted(fmt ? std::string_view(fmt) : std::string_view(), value);
+    }
+
+    /// @deprecated Use fl::format_to() instead, which supports full format
+    /// specifications (width, alignment, precision, type specifiers) rather
+    /// than simple `{}` placeholder replacement.
+    template <typename T>
+    typename std::enable_if<std::is_integral<T>::value,
+                            string_builder&>::type
+    append_formatted(std::string_view fmt, T value) noexcept {
+        const auto placeholder = fmt.find(std::string_view("{}"));
+        if (placeholder == std::string_view::npos) {
+            return append(fmt);
+        }
+
+        append(fmt.data(), placeholder);
+
+        char temp[64];
+        size_type len = 0;
+
+        if (std::is_signed<T>::value) {
+            len = _format_int64(temp, sizeof(temp), static_cast<int64_t>(value));
+        } else {
+            len = _format_uint64(temp, sizeof(temp), static_cast<uint64_t>(value));
+        }
+        append(temp, len);
+        append(fmt.data() + placeholder + 2, fmt.size() - placeholder - 2);
+        return *this;
+    }
+
+    template <typename T>
+    typename std::enable_if<std::is_integral<T>::value,
+                            string_builder&>::type
+    append_formatted(const char* fmt, T value) noexcept {
+        return append_formatted(fmt ? std::string_view(fmt) : std::string_view(), value);
+    }
+
+    /// @deprecated Use fl::format_to() instead, which supports full format
+    /// specifications (width, alignment, precision, type specifiers) rather
+    /// than simple `{}` placeholder replacement and std::snprintf-based float
+    /// formatting.
+    template <typename T>
+    typename std::enable_if<std::is_floating_point<T>::value,
+                            string_builder&>::type
+    append_formatted(std::string_view fmt, T value) noexcept {
+        const auto placeholder = fmt.find(std::string_view("{}"));
+        if (placeholder == std::string_view::npos) {
+            return append(fmt);
+        }
+
+        append(fmt.data(), placeholder);
+
+        char temp[64];
+        size_type len = static_cast<size_type>(std::snprintf(temp, sizeof(temp), "%g", static_cast<double>(value)));
+        if (len > 0) append(temp, len);
+
+        append(fmt.data() + placeholder + 2, fmt.size() - placeholder - 2);
+        return *this;
+    }
+
+    template <typename T>
+    typename std::enable_if<std::is_floating_point<T>::value,
+                            string_builder&>::type
+    append_formatted(const char* fmt, T value) noexcept {
+        return append_formatted(fmt ? std::string_view(fmt) : std::string_view(), value);
+    }
+
+    /**
+     * Builds the final fl::string from the accumulated content. Transfers
+     * buffer ownership to the returned string for large results and uses SSO
+     * for small ones. The builder is left in an empty, valid state. Must be
+     * called on an rvalue (e.g., std::move(builder).build()).
+     */
     [[nodiscard]] string build() && noexcept {
         if (_size == 0) {
             return string();
@@ -431,3 +494,4 @@ private:
 }  // namespace fl
 
 #endif  // FL_BUILDER_HPP
+

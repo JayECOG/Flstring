@@ -49,6 +49,7 @@ static constexpr size_type npos = static_cast<size_type>(-1);
 | Type | Definition |
 |------|-----------|
 | `value_type` | `char` |
+| `allocator_type` | `std::allocator<char>` |
 | `size_type` | `std::size_t` |
 | `difference_type` | `std::ptrdiff_t` |
 | `reference` | `char&` |
@@ -131,10 +132,23 @@ const_reverse_iterator rend() const noexcept;
 size_type size() const noexcept;
 size_type length() const noexcept;          // same as size()
 size_type capacity() const noexcept;        // SSO_CAPACITY (23) or heap capacity
+allocator_type get_allocator() const noexcept;
 bool      empty() const noexcept;
 
-void reserve(size_type cap);
-void shrink_to_fit();
+### Capacity
+
+```cpp
+size_type size() const noexcept;
+size_type length() const noexcept;          // same as size()
+size_type capacity() const noexcept;        // SSO_CAPACITY (23) or heap capacity
+allocator_type get_allocator() const noexcept;
+bool      empty() const noexcept;
+
+void reserve(size_type cap);                // pre-allocate capacity
+void shrink_to_fit();                       // release excess capacity
+void clear() noexcept;
+void resize(size_type new_size, char fill = '\0') noexcept;
+```
 void clear() noexcept;
 void resize(size_type new_size, char fill = '\0') noexcept;
 ```
@@ -228,6 +242,11 @@ fl::substring_view find_view(std::string_view needle, size_type pos = 0) const n
 ```cpp
 std::strong_ordering operator<=>(const string& other) const noexcept;
 bool operator==(const string& other) const noexcept;
+bool operator!=(const string& other) const noexcept;
+bool operator<(const string& other) const noexcept;
+bool operator<=(const string& other) const noexcept;
+bool operator>(const string& other) const noexcept;
+bool operator>=(const string& other) const noexcept;
 
 int compare(const string& other) const noexcept;
 int compare(std::string_view sv) const noexcept;
@@ -239,13 +258,21 @@ bool ends_with(std::string_view sv) const noexcept;
 bool ends_with(char ch) const noexcept;
 bool contains(std::string_view sv) const noexcept;
 bool contains(char ch) const noexcept;
+bool contains(const char* cstr) const noexcept;
 ```
 
 ### Conversion
 
 ```cpp
 operator std::string_view() const noexcept;   // implicit, no allocation
+operator std::string() const;                 // implicit, copies storage
+std::string to_std_string() const;            // explicit named conversion
 ```
+
+The implicit conversion to `std::string` was added in 2.0.0 to enable
+interoperation with C++11/14/17 codebases. The explicit `to_std_string()`
+method provides a named alternative for callers who prefer clarity or
+need to avoid accidental copies.
 
 ### Non-member operators
 
@@ -258,8 +285,21 @@ string operator+(const string& lhs, const char* rhs);
 string operator+(string&& lhs, const char* rhs);
 string operator+(const char* lhs, const string& rhs);
 string operator+(const char* lhs, string&& rhs);
+string operator+(const string& lhs, char rhs);
+string operator+(string&& lhs, char rhs);
+string operator+(char lhs, const string& rhs);
+string operator+(char lhs, string&& rhs);
 
 std::ostream& operator<<(std::ostream& os, const string& s);  // via string_view
+std::istream& operator>>(std::istream& is, string& s);
+void swap(string& lhs, string& rhs) noexcept;
+
+std::istream& getline(std::istream& is, string& str, char delim);
+std::istream& getline(std::istream& is, string& str);         // delimiter defaults to '\n'
+
+// Hash support for unordered containers.
+template <>
+struct std::hash<fl::string>;
 ```
 
 ---
@@ -841,7 +881,8 @@ void write_cstring(const char* cstr);
 | `sinks::buffer_sink` | Writes to a pre-allocated `char*` buffer; throws `std::overflow_error` on overflow |
 | `sinks::file_sink` | Writes to a `FILE*`; throws `std::runtime_error` on open/write failure |
 | `sinks::stream_sink` | Writes to a `std::ostream` reference |
-| `sinks::growing_sink` | Auto-growing `std::vector<char>` buffer |
+| `sinks::growing_sink` | Auto-growing `std::vector<char>` buffer (alias for `basic_growing_sink<>`) |
+| `sinks::basic_growing_sink<Alloc>` | Allocator-aware growing sink; defaults to `std::allocator<char>` |
 | `sinks::null_sink` | Discards all output; counts discarded bytes |
 | `sinks::multi_sink` | Fan-out to multiple `shared_ptr<output_sink>` targets |
 
@@ -870,15 +911,26 @@ void flush() override;
 explicit stream_sink(std::ostream& stream) noexcept;
 ```
 
-#### `sinks::growing_sink`
+#### `sinks::growing_sink` / `sinks::basic_growing_sink<Alloc>`
 
 ```cpp
+// Default (uses std::allocator<char>):
 explicit growing_sink(std::size_t initial_capacity = 256);
 fl::string  to_fl_string() const;
 std::size_t size() const noexcept;
 const char* data() const noexcept;
 void        null_terminate();
 void        reset() noexcept;
+
+// Allocator-aware:
+template <typename Allocator = std::allocator<char>>
+class basic_growing_sink : public output_sink {
+    explicit basic_growing_sink(std::size_t initial_capacity = 256,
+                                 const Allocator& alloc = Allocator());
+    // ... same interface as growing_sink ...
+};
+
+using growing_sink = basic_growing_sink<>;  // backward-compatible alias
 ```
 
 #### `sinks::null_sink`
@@ -916,14 +968,74 @@ std::shared_ptr<sinks::null_sink>    make_null_sink() noexcept;
 
 ```cpp
 template <typename... Args>
+void format_to(sinks::buffer_sink& sink, std::string_view fmt, Args&&... args);
 void format_to(sinks::buffer_sink& sink, const char* fmt, Args&&... args);
+
+// Compile-time validated overload:
+template <typename... Args>
+void format_to(sinks::buffer_sink& sink, format_string<Args...> fmt, Args&&... args);
+
+// string_builder overload:
+template <typename... Args>
+void format_to(fl::string_builder& builder, std::string_view fmt, Args&&... args);
+template <typename... Args>
+void format_to(fl::string_builder& builder, const char* fmt, Args&&... args);
 ```
 
 Formats `args` into `sink` using a `{}`-based format string.
+The formatter accepts `std::string_view` format strings and supports
+`std::string`, `std::string_view`, `fl::string`, and C-string values.
+The `format_string<Args...>` overload performs compile-time brace-balance
+validation. The `string_builder` overload delegates through a
+`builder_sink_adapter` for full format spec support.
+
+### Convenience Formatting Functions
+
+```cpp
+template <typename... Args>
+std::string format(std::string_view fmt, Args&&... args);
+
+template <typename... Args>
+std::string format(const char* fmt, Args&&... args);
+```
+
+Returns a formatted `std::string` directly. No sink creation needed. Accepts `std::string_view` or `const char*` format strings. Behaves like `std::format()`.
+
+```cpp
+template <typename T>
+std::string to_string(T&& value);
+```
+
+Single-argument quick formatting. Delegates to `format("{}", value)`. Converts any formattable value to its `std::string` representation.
+
+```cpp
+template <typename... Args>
+void print(std::string_view fmt, Args&&... args);
+
+template <typename... Args>
+void print(const char* fmt, Args&&... args);
+```
+
+Formats `args` according to `fmt` and writes the result to `stdout`.
+
+```cpp
+template <typename... Args>
+void println(std::string_view fmt, Args&&... args);
+
+template <typename... Args>
+void println(const char* fmt, Args&&... args);
+
+void println();  // bare newline
+```
+
+Formats `args` according to `fmt`, writes the result to `stdout`, and appends a newline. The zero-argument overload prints a bare newline.
 
 ### Format specification syntax
 
 Placeholders take the form `{}` (positional, sequential) or `{:spec}`.
+Explicit positional indices such as `{0}` and `{1:>8}` are also supported.
+Automatic placeholders and explicit indices cannot be mixed in the same format
+string.
 
 | Specifier | Meaning |
 |-----------|---------|
@@ -935,6 +1047,7 @@ Placeholders take the form `{}` (positional, sequential) or `{:spec}`.
 | `{:fN}`   | Fill character f, width N (e.g., `{:0>8}`) |
 | `{:=N}`   | Numeric padding (sign/prefix, then fill, then digits) |
 | `{:+}`    | Force sign prefix for integers |
+| `{: }`    | Space for positive integers, minus for negatives |
 | `{:#N}`   | Show base prefix (`0x`, `0b`, `0`) for `x`/`b`/`o` types |
 | `{:.P}`   | Precision P (floating point digits; string truncation) |
 | `{:d/x/X/b/B/o}` | Decimal/hex/binary/octal integer type |
@@ -951,6 +1064,206 @@ fl::format_to(sink, "Hello, {}! Count: {:>8}", "world", 42);
 sink.null_terminate();
 // buf == "Hello, world! Count:       42"
 ```
+
+Malformed placeholders raise `std::invalid_argument`.
+
+### Range and Container Formatting
+
+```cpp
+template <typename It, typename Sep>
+class join_view { /* ... */ };
+
+template <typename It, typename Sep>
+auto join(It first, It last, const Sep& sep) -> join_view<It, Sep>;
+
+template <typename Range, typename Sep>
+auto join(Range&& range, const Sep& sep) -> join_view<It, Sep>;
+```
+
+`fl::join()` returns a `join_view` that formats the given range with the specified separator between each element. The result can be passed directly to `fl::format()` or `fl::format_to()`.
+
+Iterable containers (vectors, sets, maps, arrays, etc.) are formattable directly with `{}`. Strings and `string_view` are excluded from range formatting.
+
+### Custom Type Extensibility
+
+```cpp
+template <typename T, typename = void>
+struct formatter {
+    struct _fl_primary {};
+};
+```
+
+Specialise `fl::formatter<T>` for user-defined types. A specialisation must provide `parse()` and `format(Sink&, const T&, const format_spec*)` methods. Detection is via SFINAE on the presence of `parse()`.
+
+### `fl::format_to()` with `string_builder`
+
+```cpp
+template <typename... Args>
+void format_to(fl::string_builder& builder, std::string_view fmt, Args&&... args);
+
+template <typename... Args>
+void format_to(fl::string_builder& builder, const char* fmt, Args&&... args);
+```
+
+Formats `args` into the builder using full format spec support. Delegates
+through a `builder_sink_adapter`. Replaces the deprecated `append_formatted()`
+method.
+
+### `fl::format_as()` ADL Adapter
+
+```cpp
+// User-defined in the type's namespace:
+auto format_as(const MyType& value) -> fl::formattable_type;
+```
+
+Automatically detected via `fl::detail::has_format_as_v<T>`. The returned
+`formattable_type` is formatted in place of the original type without a
+full `formatter<T>` specialisation.
+
+### `fl::ostream_formatter`
+
+```cpp
+struct ostream_formatter {
+    constexpr std::size_t parse(std::string_view spec);
+    template <typename Sink>
+    void format(Sink& sink, const auto& value, const fl::detail::format_spec* spec);
+};
+```
+
+Inherit from `ostream_formatter` in your `formatter<T>` specialisation to
+make types with `operator<<(std::ostream&, T)` formattable. Uses
+`detail::sink_streambuf` internally.
+
+### Debug `?` Specifier
+
+The format specifier `{:?}` enables escaped output for debugging. Supported
+for strings and characters. Strings are double-quoted; characters are
+single-quoted. Escape sequences: `\n`, `\t`, `\r`, `\\`, `\"`, `\0`,
+`\xNN` for control bytes below `0x20`.
+
+### `fl::detail::format_string` (Compile-Time Checking)
+
+```cpp
+template <typename... Args>
+struct format_string {
+    consteval format_string(const char* s);  // validates at compile time
+    std::string_view get() const noexcept;
+};
+```
+
+Wraps a format string with `consteval` brace-balance validation. New
+overloads for `format_to()`, `format()`, `print()`, `println()` accept
+`format_string` for compile-time checking. Pass a literal string to opt in;
+runtime strings use the unvalidated fallback.
+
+```cpp
+// Compile-time validated:
+fl::format(fl::detail::format_string<Args>("{}"), 42);
+
+// Runtime fallback (unvalidated at compile time):
+std::string_view rt = get_runtime_fmt();
+fl::format(rt, 42);
+```
+
+### `fl::dynamic_format_arg_store` and `vformat`/`vformat_to`
+
+```cpp
+class dynamic_format_arg_store {
+public:
+    template <typename T>
+    void push_back(const T& value);
+    template <typename T>
+    void push_back(std::string_view, const T& value);  // with name
+    void clear() noexcept;
+    bool empty() const noexcept;
+    std::size_t size() const noexcept;
+};
+
+// Free functions:
+template <typename... Args>
+void vformat_to(sinks::output_sink& sink, std::string_view fmt,
+                const dynamic_format_arg_store& store);
+
+template <typename... Args>
+void vformat_to(sinks::buffer_sink& sink, std::string_view fmt,
+                const dynamic_format_arg_store& store);
+
+std::string vformat(std::string_view fmt,
+                    const dynamic_format_arg_store& store);
+```
+
+Build argument lists dynamically at runtime. Type-erased dispatch via
+`format_arg_base` / `format_arg_impl<T>`. Supports format specs and
+auto/explicit indexing.
+
+### Compiled Format Strings
+
+```cpp
+template <std::size_t N>
+struct compiled_format {
+    // Pre-parsed segments, no public members
+};
+
+namespace detail {
+    template <std::size_t MaxSegments>
+    consteval auto compile(std::string_view fmt) -> compiled_format<MaxSegments>;
+}
+
+// Format using a compiled format string:
+template <typename Sink, std::size_t N, typename... Args>
+void format_to(Sink& sink, const compiled_format<N>& cfmt, Args&&... args);
+```
+
+`compile<MaxSegments>(fmt)` parses the format string at compile time into
+segments (literal text, spec placeholders, placeholder flags). The resulting
+`compiled_format<N>` is a constexpr value with zero allocation overhead.
+Dispatch through `format_to()` avoids runtime parsing for each formatting
+call.
+
+### `basic_growing_sink`
+
+```cpp
+template <typename Allocator = std::allocator<char>>
+class basic_growing_sink : public output_sink {
+    explicit basic_growing_sink(std::size_t initial_capacity = 256,
+                                 const Allocator& alloc = Allocator());
+    fl::string  to_fl_string() const;            // must be kept for compat
+    std::size_t size() const noexcept;
+    const char* data() const noexcept;
+    void        null_terminate();
+    void        reset() noexcept;
+};
+
+// Backward-compatible alias:
+using growing_sink = basic_growing_sink<>;
+```
+
+### Wide String Wrappers
+
+```cpp
+template <typename... Args>
+std::wstring wformat(std::string_view fmt, Args&&... args);
+
+template <typename... Args>
+std::wstring wformat(const char* fmt, Args&&... args);
+
+template <typename T>
+std::wstring to_wstring(const T& value);
+```
+
+`wformat()` formats arguments as a narrow string via `fl::format()`, then widens to `std::wstring`. `to_wstring()` is the single-argument shorthand.
+
+### Dynamic Width and Precision
+
+The format specifier syntax is extended to support runtime-provided width and precision:
+
+| Pattern | Meaning |
+|---------|---------|
+| `{:{}}` | Width taken from the next argument |
+| `{:.{}}` | Precision taken from the next argument |
+| `{:{}.{}}` | Both width and precision from arguments |
+
+Dynamic width/precision arguments must be integers. Negative width is treated as zero; negative precision is treated as unset.
 
 ---
 

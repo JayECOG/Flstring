@@ -18,7 +18,7 @@ Holder"); and
 end of this Agreement (the "Contributor").
 
 WHEREAS the Copyright Holder maintains the fl library, a high-performance, header-only C++20
-string library (the "Project"), and publishes the Work under the FL Licence (see `LICENSE.txt`);
+string library (the "Project"), and publishes the Work under the FL Licence (see `LICENSE`);
 
 WHEREAS the Contributor wishes to submit Contributions to the Project, and the Copyright Holder
 is willing to accept such Contributions, subject to the terms and conditions of this Agreement;
@@ -80,7 +80,7 @@ employs You, engages You as a contractor, or is otherwise entitled to ownership 
 created by You under any employment, service, contractor, consulting, or similar agreement,
 whether written or oral.
 
-**1.10 "FL Licence"** means the licence agreement set out in `LICENSE.txt` in the Project
+**1.10 "FL Licence"** means the licence agreement set out in `LICENSE` in the Project
 repository, as it exists on the Effective Date and as it may be amended or superseded by the
 Copyright Holder in accordance with its terms.
 

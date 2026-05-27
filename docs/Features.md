@@ -1,6 +1,10 @@
 # FL Library Features
 
-This document provides a comprehensive reference for every public component in the `fl` library. Each section describes the component's purpose, key implementation details, and usage patterns.
+This document provides a comprehensive reference for every public component in the `fl` string library. Each section describes the component's purpose, key implementation details, and usage patterns.
+
+---
+
+## Table of Contents
 
 ---
 
@@ -17,6 +21,7 @@ This document provides a comprehensive reference for every public component in t
 9. [Allocator Infrastructure](#allocator-infrastructure)
 10. [Debug Utilities](#debug-utilities)
 11. [Profiling](#profiling)
+12. [C++ Standard Compatibility](#c-standard-compatibility)
 
 ---
 
@@ -337,7 +342,7 @@ The format specification syntax inside `{:...}` supports:
 |---|---|---|
 | Fill | Any character | Padding character (default: space) |
 | Alignment | `<`, `>`, `^`, `=` | Left, right, center, numeric padding |
-| Sign | `+` | Force sign display for positive numbers |
+| Sign | `+`, ` ` (space) | Force sign (`+`) or space (` `) for positive numbers; minus for negatives |
 | Base prefix | `#` | Show `0x`, `0b`, `0` prefix |
 | Width | Integer | Minimum field width |
 | Precision | `.N` | Decimal precision for floats; truncation length for strings |
@@ -350,13 +355,143 @@ All sinks inherit from `fl::sinks::output_sink` and implement `write(const char*
 | Sink | Description |
 |---|---|
 | `fl::sinks::buffer_sink` | Fixed-size caller-provided buffer. Throws `std::overflow_error` on overflow. |
-| `fl::sinks::growing_sink` | Dynamically growing `std::vector<char>` buffer. |
+| `fl::sinks::growing_sink` | Dynamically growing `std::vector<char>` buffer. Alias for `basic_growing_sink<>`. |
+| `fl::sinks::basic_growing_sink<Alloc>` | Allocator-aware growing sink. Defaults to `std::allocator<char>`. |
 | `fl::sinks::file_sink` | Writes to a C `FILE*` handle. Supports owned and borrowed handles. |
 | `fl::sinks::stream_sink` | Writes to a `std::ostream` reference. |
 | `fl::sinks::null_sink` | Discards all output. Useful for benchmarking formatting overhead. |
 | `fl::sinks::multi_sink` | Fans out writes to multiple sinks simultaneously. |
 
 Factory helpers: `fl::make_buffer_sink()`, `fl::make_file_sink()`, `fl::make_stream_sink()`, `fl::make_growing_sink()`, `fl::make_null_sink()`.
+
+### Convenience Formatting Functions
+
+Several convenience wrappers eliminate the boilerplate of sink creation for common tasks:
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `fl::format(fmt, args...)` | Returns a formatted `std::string` directly | `fl::format("Hello, {}!", name)` |
+| `fl::to_string(value)` | Single-value quick formatting | `fl::to_string(42)` → `"42"` |
+| `fl::print(fmt, args...)` | Formats to `stdout` | `fl::print("x = {}", x)` |
+| `fl::println(fmt, args...)` | Formats to `stdout` with trailing newline | `fl::println("done")` |
+| `fl::println()` | Prints a bare newline | `fl::println()` |
+| `fl::vformat(fmt, store)` | Formats from a runtime argument store | `fl::vformat("{} {}", store)` |
+| `fl::vformat_to(sink, fmt, store)` | Formats to a sink from a runtime store | `fl::vformat_to(sink, "{}", store)` |
+
+### `fl::format_to()` with `string_builder`
+
+Full format spec support for `string_builder` is available via
+`fl::format_to(builder, fmt, args...)`. This delegates through a
+`builder_sink_adapter` to the format engine:
+
+```cpp
+fl::string_builder builder(128);
+fl::format_to(builder, "Score: {:>8}", 42);
+fl::string result = std::move(builder).build();
+// result == "Score:       42"
+```
+
+> The old `append_formatted()` method is deprecated in favour of
+> `fl::format_to(builder, ...)`.
+
+### `fl::ostream_formatter`
+
+A convenience base class for types that already provide
+`operator<<(std::ostream&, T)`. Inherit from `ostream_formatter` in your
+`formatter<T>` specialisation to make any streamable type formattable:
+
+```cpp
+struct Point { int x, y; };
+
+template <>
+struct fl::formatter<Point> : fl::ostream_formatter {};
+```
+
+Internally uses `detail::sink_streambuf` to wrap any sink as a `std::streambuf`.
+
+### `fl::format_as()` ADL Adapter
+
+Define `auto format_as(const MyType&) -> fl::formattable_type` in your type's
+namespace. The library detects it automatically via `has_format_as_v<T>`:
+
+```cpp
+struct Degrees { double value; };
+auto format_as(const Degrees& d) -> fl::formattable_type { return d.value; }
+// Now Degrees is formattable without any formatter<T> specialisation
+```
+
+### Debug `?` Specifier
+
+The `{:?}` specifier formats strings with escape sequences for debugging:
+double-quoted, with `\n`, `\t`, `\r`, `\\`, `\"`, `\0`, and `\xNN` for
+control bytes. Characters use single quotes.
+
+```cpp
+fl::format("{:?}", "hello\nworld");  // "\"hello\\nworld\""
+fl::format("{:?}", '\n');            // "'\\n'"
+```
+
+### Compile-Time Format String Checking
+
+`fl::detail::format_string<Args...>` wraps format strings with `consteval`
+validation of balanced braces. New overloads for `format_to()`, `format()`,
+`print()`, `println()` accept `format_string`. Pass a literal string for
+compile-time checking; runtime strings use the unvalidated fallback.
+
+### `vformat()` and `dynamic_format_arg_store`
+
+Build argument lists at runtime with `fl::dynamic_format_arg_store`:
+
+```cpp
+fl::dynamic_format_arg_store store;
+store.push_back(42);
+store.push_back(3.14);
+store.push_back("hello");
+std::string s = fl::vformat("{} {} {}", store);  // "42 3.14 hello"
+```
+
+`fl::vformat_to(sink, fmt, store)` writes to any sink. Type erasure is
+handled by `format_arg_base` / `format_arg_impl<T>`.
+
+### Compiled Format Strings
+
+`fl::detail::compile<MaxSegments>(fmt)` produces a `compiled_format<N>` with
+pre-parsed segments. `fl::format_to(sink, cfmt, args...)` dispatches without
+runtime parsing overhead:
+
+```cpp
+constexpr auto cfmt = fl::detail::compile<8>("Value: {:>10}");
+fl::format_to(sink, cfmt, 42);  // no parsing at runtime
+```
+
+### Custom Allocator Support
+
+`basic_growing_sink<Alloc>` is an allocator-aware version of `growing_sink`.
+Defaults to `std::allocator<char>`:
+
+```cpp
+using fl::sinks::growing_sink = fl::sinks::basic_growing_sink<>;  // default allocator
+fl::sinks::basic_growing_sink<MyAllocator<char>> custom_sink(256);
+```
+
+Internally, the formatter array uses `format_fn<Sink>` — a 32-byte small-buffer
+optimisation replacing `std::function`, eliminating heap allocation for small
+callables.
+
+### `__int128` Support
+
+On GCC and Clang (detected via `__SIZEOF_INT128__`), `__int128` and `unsigned __int128` are supported in all formatting paths: `format_value()`, `format_argument()`, and spec-based formatting via `format_int_with_spec()`. Not available on MSVC.
+
+### Float Formatting Performance
+
+Float formatting uses `std::to_chars` (Dragonbox/Ryū internally on modern toolchains), replacing the previous `snprintf`-based engine. This delivers:
+
+- **5–10× faster** float-to-string conversion
+- **Locale-independent output** — no `LC_NUMERIC` surprises
+- **Shortest-round-trip** by default — produces the shortest string that round-trips to the same value
+- **Correct `float` precision** — `3.14f` produces `"3.14"`, not `"3.140000104904175"`
+- All format specifiers supported: `e`/`E`, `f`/`F`, `g`/`G`, and default shortest format
+- Proper handling of `NaN`, `inf`, and `-0.0`
 
 ```cpp
 #include <fl.hpp>
@@ -376,6 +511,93 @@ int main() {
     return 0;
 }
 ```
+
+### Custom Type Extensibility (`fl::formatter<T>`)
+
+Users can make their own types formattable by specialising `fl::formatter<T>`. The primary template is empty; the library uses SFINAE on the presence of a `parse()` method to detect specialisations. When detected, `format_argument()` dispatches to the custom formatter.
+
+```cpp
+struct Point { int x, y; };
+
+template <>
+struct fl::formatter<Point> {
+    constexpr std::size_t parse(std::string_view) noexcept { return 0; }
+    template <typename Sink>
+    void format(Sink& sink, const Point& p, const fl::detail::format_spec* spec);
+};
+```
+
+See the [Formatting documentation](./Formatting.md#custom-type-extensibility) for a complete example.
+
+### Container and Range Formatting
+
+All iterable containers are formattable with `{}`:
+- Plain containers format as `{elem1, elem2, elem3}`
+- Map-like containers format as `{key1: val1, key2: val2}`
+- Strings and `string_view` are excluded from range formatting
+
+```cpp
+std::vector<int> vec = {1, 2, 3};
+fl::format("{}", vec);           // "{1, 2, 3}"
+```
+
+### `fl::join()`
+
+`fl::join(range, sep)` and `fl::join(first, last, sep)` format a range with a separator between elements. Returns a `join_view` that integrates with the formatting pipeline.
+
+```cpp
+fl::format("{}", fl::join(vec, ", "));   // "1, 2, 3"
+fl::format("{}", fl::join(arr, "|"));    // "x|y|z"
+```
+
+### Dynamic Width and Precision
+
+Width and precision can be taken from arguments at runtime:
+
+| Pattern | Meaning |
+|---------|---------|
+| `{:{}}` | Width from next argument |
+| `{:.{}}f` | Precision from next argument |
+| `{:{}.{}}` | Both width and precision from arguments |
+
+Negative width is treated as zero; negative precision is treated as unset.
+
+### Wide String Wrappers
+
+`fl::wformat(fmt, args...)` returns `std::wstring` (formats narrow, then widens). `fl::to_wstring(value)` returns `std::wstring` for a single value.
+
+```cpp
+std::wstring ws = fl::wformat("Value: {}", 42);  // L"Value: 42"
+std::wstring ws2 = fl::to_wstring(3.14);          // L"3.14"
+```
+
+### Chrono Formatting (Optional Header)
+
+**Header:** `#include "fl/chrono_format.hpp"`
+
+| Type | Default Format | Example |
+|------|---------------|---------|
+| `std::chrono::duration<Rep, Period>` | Value + SI unit suffix | `5s`, `1500ms`, `2.5min` |
+| `std::chrono::time_point<Clock, Duration>` | ISO 8601 via strftime | `2026-05-23 19:04:30` |
+
+### Terminal Colour and Style (Optional Header)
+
+**Header:** `#include "fl/color.hpp"`
+
+The `text_style` struct describes terminal text appearance (fg/bg colours and attributes). The `fl::ansi` namespace provides 16 named colour constants. Combinator functions (`fg()`, `bg()`, `bold()`, `italic()`, `underline()`, `dim()`, `blink()`, `reverse()`, `strikethrough()`) compose via `operator|`. Use `fl::styled(value, style)` to wrap any value with ANSI SGR codes:
+
+```cpp
+fl::print("{}", fl::styled("Error", fl::fg(fl::ansi::red) | fl::bold));
+```
+
+### Format String Updates
+
+The format specifier table now includes dynamic values:
+
+| Component | Syntax | Description |
+|-----------|--------|-------------|
+| Dynamic width | `{:{}}` | Width taken from next integer argument |
+| Dynamic precision | `{:.{}}` | Precision taken from next integer argument |
 
 ---
 
@@ -481,10 +703,18 @@ void expensive_operation() {
 Including `<fl.hpp>` pulls in every public component listed above. The library version is available via:
 
 ```cpp
-fl::version();       // Returns "1.0.0"
-fl::MAJOR_VERSION;   // 1
+fl::version();       // Returns "2.0.0"
+fl::MAJOR_VERSION;   // 2
 fl::MINOR_VERSION;   // 0
 fl::PATCH_VERSION;   // 0
 ```
 
 For detailed API signatures, see the [API Reference](./API.md).
+
+## C++ Standard Compatibility
+
+The `fl` library targets C++20 and does not support compilation under earlier C++ standards. For users working in C++11, C++14, or C++17 environments, the library provides `std::string` conversion operators (`operator std::string()` and `to_std_string()`) for passing fl strings into standard-library APIs.
+
+### Deprecations
+
+- **`fl::string::reserve()`** with no arguments is deprecated. Use `shrink_to_fit()` instead. This change aligns the API with C++11/14/17 conventions where `reserve()` takes a capacity argument and `shrink_to_fit()` releases excess capacity.

@@ -233,6 +233,184 @@ void run_benchmarks() {
     }
 
     std::cout << "------------------------------------------------------------------\n";
+
+    // 9. Insert Middle
+    {
+        std::string std_base("A long string that needs insertion in the middle area here");
+        fl::string fl_base("A long string that needs insertion in the middle area here");
+        const char* insert_str = "INSERTED";
+
+        Timer t1;
+        for (int i = 0; i < iterations; ++i) {
+            std::string s = std_base;
+            s.insert(25, insert_str);
+            do_not_optimize_char(s[0]);
+        }
+        double std_time = t1.elapsed_us();
+
+        Timer t2;
+        for (int i = 0; i < iterations; ++i) {
+            fl::string s = fl_base;
+            s.insert(25, insert_str);
+            do_not_optimize_char(s[0]);
+        }
+        double fl_time = t2.elapsed_us();
+        std::cout << std::left << std::setw(30) << "Insert Middle"
+                  << std::setw(15) << std_time << std::setw(15) << fl_time
+                  << std_time / fl_time << "x\n";
+    }
+
+    // 10. Insert at Capacity Edge (new_size == capacity)
+    {
+        std::string std_base(23, 'A');
+        fl::string fl_base(23, 'A');
+        // Appending 1 char to a 23-char SSO string tests the
+        // capacity edge (23 -> heap transition).
+
+        Timer t1;
+        for (int i = 0; i < iterations; ++i) {
+            std::string s(23, 'A');
+            s.insert(10, 1, 'B');
+            do_not_optimize_char(s[0]);
+        }
+        double std_time = t1.elapsed_us();
+
+        Timer t2;
+        for (int i = 0; i < iterations; ++i) {
+            fl::string s(23, 'A');
+            s.insert(10, 1, 'B');
+            do_not_optimize_char(s[0]);
+        }
+        double fl_time = t2.elapsed_us();
+        std::cout << std::left << std::setw(30) << "Insert Capacity Edge"
+                  << std::setw(15) << std_time << std::setw(15) << fl_time
+                  << std_time / fl_time << "x\n";
+    }
+
+    // 11. Replace Middle
+    {
+        std::string std_base("A long string that needs replacement in the middle here");
+        fl::string fl_base("A long string that needs replacement in the middle area here");
+        const char* replace_str = "REPLACED!";
+
+        Timer t1;
+        for (int i = 0; i < iterations; ++i) {
+            std::string s = std_base;
+            s.replace(10, 7, replace_str);
+            do_not_optimize_char(s[0]);
+        }
+        double std_time = t1.elapsed_us();
+
+        Timer t2;
+        for (int i = 0; i < iterations; ++i) {
+            fl::string s = fl_base;
+            s.replace(10, 7, replace_str);
+            do_not_optimize_char(s[0]);
+        }
+        double fl_time = t2.elapsed_us();
+        std::cout << std::left << std::setw(30) << "Replace Middle"
+                  << std::setw(15) << std_time << std::setw(15) << fl_time
+                  << std_time / fl_time << "x\n";
+    }
+
+    // 12. Resize Larger
+    {
+        std::string std_s("hello");
+        fl::string fl_s("hello");
+
+        Timer t1;
+        for (int i = 0; i < iterations; ++i) {
+            std::string s("hello");
+            s.resize(24, 'x');
+            do_not_optimize_char(s[0]);
+        }
+        double std_time = t1.elapsed_us();
+
+        Timer t2;
+        for (int i = 0; i < iterations; ++i) {
+            fl::string s("hello");
+            s.resize(24, 'x');
+            do_not_optimize_char(s[0]);
+        }
+        double fl_time = t2.elapsed_us();
+        std::cout << std::left << std::setw(30) << "Resize Larger"
+                  << std::setw(15) << std_time << std::setw(15) << fl_time
+                  << std_time / fl_time << "x\n";
+    }
+
+    // 13. Iterator-Range Append (random-access)
+    {
+        std::vector<char> vec(100, 'x');
+
+        Timer t1;
+        for (int i = 0; i < iterations; ++i) {
+            std::string s;
+            s.append(vec.begin(), vec.end());
+            do_not_optimize_char(s[0]);
+        }
+        double std_time = t1.elapsed_us();
+
+        Timer t2;
+        for (int i = 0; i < iterations; ++i) {
+            fl::string s;
+            s.append(vec.begin(), vec.end());
+            do_not_optimize_char(s[0]);
+        }
+        double fl_time = t2.elapsed_us();
+        std::cout << std::left << std::setw(30) << "Iterator Append (100)"
+                  << std::setw(15) << std_time << std::setw(15) << fl_time
+                  << std_time / fl_time << "x\n";
+    }
+
+    // 14. Iterator-Range Insert (random-access into heap string)
+    {
+        std::vector<char> vec(50, 'Y');
+
+        Timer t1;
+        for (int i = 0; i < large_iterations; ++i) {
+            std::string s(200, 'A');
+            s.insert(s.begin() + 50, vec.begin(), vec.end());
+            do_not_optimize_char(s[0]);
+        }
+        double std_time = t1.elapsed_us();
+
+        Timer t2;
+        for (int i = 0; i < large_iterations; ++i) {
+            fl::string s(200, 'A');
+            s.insert(s.begin() + 50, vec.begin(), vec.end());
+            do_not_optimize_char(s[0]);
+        }
+        double fl_time = t2.elapsed_us();
+        std::cout << std::left << std::setw(30) << "Iterator Insert (50 into 200)"
+                  << std::setw(15) << std_time << std::setw(15) << fl_time
+                  << std_time / fl_time << "x\n";
+    }
+
+    // 15. Iterator-Range Replace (random-access)
+    {
+        std::vector<char> vec(30, 'Z');
+
+        Timer t1;
+        for (int i = 0; i < large_iterations; ++i) {
+            std::string s(200, 'A');
+            s.replace(s.begin() + 20, s.begin() + 50, vec.begin(), vec.end());
+            do_not_optimize_char(s[0]);
+        }
+        double std_time = t1.elapsed_us();
+
+        Timer t2;
+        for (int i = 0; i < large_iterations; ++i) {
+            fl::string s(200, 'A');
+            s.replace(s.begin() + 20, s.begin() + 50, vec.begin(), vec.end());
+            do_not_optimize_char(s[0]);
+        }
+        double fl_time = t2.elapsed_us();
+        std::cout << std::left << std::setw(30) << "Iterator Replace (30 into 200)"
+                  << std::setw(15) << std_time << std::setw(15) << fl_time
+                  << std_time / fl_time << "x\n";
+    }
+
+    std::cout << "------------------------------------------------------------------\n";
 }
 
 int main() {

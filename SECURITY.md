@@ -84,6 +84,11 @@ This mechanism compiles to a zero-overhead stub in release builds.
   heap allocator.
 - SIMD search paths (SSE2/AVX2) operate only on memory owned by the string
   instance and respect alignment requirements.
+- Version 2.0.0 added comprehensive null-pointer guards to `fl::string`
+  constructors, `append()`, and `insert()` methods, along with overflow
+  protection in size arithmetic and growth paths. Self-aliasing in
+  `append()`/`assign()`/`insert()`/`replace()` was corrected from
+  undefined behaviour to safe operation.
 
 ### Minimal Attack Surface
 

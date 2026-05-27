@@ -4,8 +4,11 @@
 #ifndef FL_SYNCHRONIZED_STRING_HPP
 #define FL_SYNCHRONIZED_STRING_HPP
 
-// Compatibility shim that redirects to the British-spelling header
-// (synchronised_string.hpp), which contains the actual implementation.
+/// @file
+/// US-spelling convenience alias.
+///
+/// #include this header (or equivalently, synchronised_string.hpp) and use
+/// `fl::synchronized_string` — it maps directly to fl::synchronised_string.
 
 #include "fl/synchronised_string.hpp"
 

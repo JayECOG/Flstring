@@ -11,7 +11,7 @@ int main() {
         std::cout << "1. Buffer sink (zero-allocation formatting):" << std::endl;
         
         char buffer[256];
-        auto sink = fl::make_buffer_sink(buffer);
+        auto sink = fl::make_buffer_sink(buffer, sizeof(buffer));
         
         sink.write("Hello", 5);
         sink.write(" ", 1);
@@ -26,12 +26,12 @@ int main() {
     {
         std::cout << "2. Growing sink (dynamic allocation):" << std::endl;
         
-        auto sink = fl::make_growing_sink(256);
+        auto sink = fl::make_growing_sink<std::allocator<char>>(256);
         
-        sink->write("Dynamic ", 8);
-        sink->write("buffering ", 10);
-        sink->write("works!", 6);
-        sink->null_terminate();
+        sink.write("Dynamic ", 8);
+        sink.write("buffering ", 10);
+        sink.write("works!", 6);
+        sink.null_terminate();
         
         std::cout << "  Content written successfully" << std::endl << std::endl;
     }
@@ -41,7 +41,7 @@ int main() {
         std::cout << "3. Stream sink (output to std::cout):" << std::endl;
         
         auto sink = fl::make_stream_sink(std::cout);
-        sink->write("Stream sink output\n", 19);
+        sink.write("Stream sink output\n", 19);
         std::cout << std::endl;
     }
 
@@ -53,10 +53,10 @@ int main() {
         
         // Simulate writing lots of data without allocating
         for (int i = 0; i < 1000; ++i) {
-            sink->write("Data", 4);
+            sink.write("Data", 4);
         }
         
-        std::cout << "  Total bytes 'written': " << sink->bytes_written() << std::endl << std::endl;
+        std::cout << "  Total bytes 'written': " << sink.written() << std::endl << std::endl;
     }
 
     // Example 5: Multi sink
@@ -68,7 +68,7 @@ int main() {
         fl::sinks::multi_sink multi;
         
         auto buf_sink = std::make_shared<fl::sinks::buffer_sink>(buffer, sizeof(buffer));
-        auto cout_sink = fl::make_stream_sink(std::cout);
+        auto cout_sink = std::make_shared<fl::sinks::stream_sink>(std::cout);
         
         multi.add_sink(buf_sink);
         multi.add_sink(cout_sink);
@@ -116,7 +116,7 @@ int main() {
         
         sink.write("12345", 5);
         std::cout << "  Written 5 bytes to 10-byte buffer" << std::endl;
-        std::cout << "  Available space: " << sink.available() << " bytes" << std::endl;
+        std::cout << "  Available space: " << (sink.capacity() - sink.written()) << " bytes" << std::endl;
         
         try {
             sink.write("123456", 6);  // This should fail
@@ -135,9 +135,8 @@ int main() {
         
         sink.write("Direct", 6);
         
-        // Access written data
-        const char* data = sink.buffer();
-        std::cout << "  First character: '" << data[0] << "'" << std::endl;
+        // Access written data — the buffer is the local array we passed in
+        std::cout << "  First character: '" << buffer[0] << "'" << std::endl;
         std::cout << "  Total written: " << sink.written() << " bytes" << std::endl << std::endl;
     }
 

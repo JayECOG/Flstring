@@ -137,16 +137,19 @@ int main(int argc, char** argv) {
 
     // Benchmark 2: fl::temp_buffer with and without pooling
     {
-        std::cout << "2. fl::temp_buffer Pooling (" << BUFFER_ITER << " iterations, 10 appends of 50 chars):\n";
+        constexpr int appends_per_buffer = 12;  // 12 x 50 bytes exceeds the 512-byte stack buffer.
+        std::cout << "2. fl::temp_buffer Pooling (" << BUFFER_ITER << " iterations, "
+                  << appends_per_buffer << " appends of 50 chars):\n";
         std::string append_data = generate_random_string(50);
+        std::string_view append_view(append_data);
 
         // Without pooling (direct arena_buffer construction)
         {
             Timer timer;
             for (int i = 0; i < BUFFER_ITER; ++i) {
                 fl::arena_buffer<fl::detail::DEFAULT_ARENA_STACK_SIZE> buf; // Explicitly use default stack size
-                for (int j = 0; j < 10; ++j) {
-                    buf.append(append_data.c_str());
+                for (int j = 0; j < appends_per_buffer; ++j) {
+                    buf.append(append_view);
                 }
                 volatile auto _ = buf.to_string().size();
                 (void)_;
@@ -159,8 +162,8 @@ int main(int argc, char** argv) {
             Timer timer;
             for (int i = 0; i < BUFFER_ITER; ++i) {
                 fl::temp_buffer buf = fl::get_pooled_temp_buffer();
-                for (int j = 0; j < 10; ++j) {
-                    buf->append(append_data.c_str());
+                for (int j = 0; j < appends_per_buffer; ++j) {
+                    buf->append(append_view);
                 }
                 volatile auto _ = buf->to_string().size();
                 (void)_;
@@ -173,6 +176,7 @@ int main(int argc, char** argv) {
     {
         std::cout << "3. fl::string_builder Growth (" << BUILDER_ITER << " iterations, building 1KB string):\n";
         std::string small_append_data = generate_random_string(10); // Append 10 bytes at a time
+        std::string_view small_append_view(small_append_data);
 
         // fl::string_builder (default aggressive exponential growth)
         {
@@ -180,7 +184,7 @@ int main(int argc, char** argv) {
             for (int i = 0; i < BUILDER_ITER; ++i) {
                 fl::string_builder sb;
                 for (int j = 0; j < 100; ++j) { // Append 100 times to reach 1KB
-                    sb.append(small_append_data.c_str());
+                    sb.append(small_append_view);
                 }
                 fl::string s = std::move(sb).build();
                 volatile auto _ = s.length();

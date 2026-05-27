@@ -85,11 +85,14 @@ cmake --build .
 
 ### Running Tests
 
-The project includes four CTest targets.
+The project includes ten CTest targets.
 
 ```bash
 # From the build directory
 ctest --output-on-failure
+
+# Run a single test
+ctest -R fl_string_vs_std_full_test --output-on-failure
 ```
 
 The test targets are:
@@ -100,6 +103,12 @@ The test targets are:
 | `fl_string_vs_std_full_test`   | Full `fl::string` operation tests against `std::string` |
 | `test_adaptive_find`           | Adaptive substring search algorithm tests            |
 | `test_rope_access_index`       | Rope index-based access correctness tests            |
+| `test_arena`                   | Arena allocator and buffer — allocation, alignment, reset, string integration |
+| `test_cpp_versions`            | C++ standard detection validation (verifies `FL_HAS_CPP20` and `FL_HAS_CPP23` define correctly) |
+| `test_format`                  | Basic format correctness tests |
+| `test_format_comprehensive`    | Full format spec compliance (1,300+ lines of test cases) |
+| `test_format_stress`           | Format system stress testing |
+| `test_synchronised_string`     | Synchronised string constructors, operators, comparison methods |
 
 The test suite covers:
 
@@ -116,19 +125,19 @@ The test suite covers:
 
 Performance benchmarks are provided as separate executables. There is no single unified benchmark binary.
 
-**Always-built benchmark targets:**
+**Always-built benchmark targets (7):**
 
 | Target                          | Description                                                  |
 | :------------------------------ | :----------------------------------------------------------- |
 | `string_vs_std_bench`           | Core `fl::string` vs `std::string` operation benchmarks      |
 | `rope_vs_std_string_benchmarks` | Rope concatenation vs `std::string` benchmarks               |
-| `comprehensive_bench`           | Comprehensive benchmark suite across all components          |
-| `find_haystack_bench`           | Substring search throughput (256--4096 byte haystacks)       |
+| `comprehensive_bench`           | 35-operation benchmark suite across all categories           |
+| `find_haystack_bench`           | Substring search throughput (256 B to 4 MB haystacks)        |
 | `rope_rebalance_bench`          | Rope `rebalance()` cost isolation benchmark                  |
 | `pmr_vs_pool_bench`             | `fl` pool allocator vs `std::pmr::monotonic_buffer_resource` |
 | `aslr_construction_bench`       | ASLR / allocator warm-up construction investigation          |
 
-**Conditionally-built benchmark targets:**
+**Conditionally-built benchmark targets (2):**
 
 | Target               | Condition                           | Description                                 |
 | :------------------- | :---------------------------------- | :------------------------------------------ |
@@ -152,11 +161,13 @@ Run any individual benchmark from the build directory:
 
 ### Implementation Quality Checklist
 
-*   **C++20 Compliant**: All code uses modern C++20 idioms and language features.
+*   **C++20 Compliant**: All code uses modern C++20 idioms and language features. SIMD intrinsics (SSE4.1, SSE4.2, AVX2) are gated to x86 targets at the CMake level to prevent build failures on ARM.
 *   **Header-Only Core**: The core library is header-only with no external dependencies beyond the C++ standard library.
+*   **British English Conventions**: Comments and documentation use British English spelling (optimise, behaviour, synchronised, colour). The US spelling alias `fl::synchronized_string` is provided as a `using` declaration for American English users.
 *   **Exception Safety**: Operations adhere to basic, strong, or no-throw guarantees as appropriate.
 *   **Memory Management**: Emphasis on zero-allocation strategies, thread-local pooling, and efficient memory reuse.
 *   **Thread Safety**: Explicitly defined for `fl::immutable_string` and `fl::synchronised_string`. `fl::string` itself is not thread-safe for mutable operations. Debug diagnostics are available via `FL_DEBUG_THREAD_SAFETY`.
+*   **CI Pipeline**: The `.github/workflows/ci.yml` workflow runs two jobs — static analysis (cppcheck via `compile_commands.json`) and sanitised builds (`AddressSanitizer` + `UndefinedBehaviorSanitizer` on `RelWithDebInfo`).
 
 ### Comment Style
 
@@ -174,27 +185,27 @@ The codebase follows the [Google C++ Style Guide](https://google.github.io/style
 Flstring/
 ├── include/              # Public headers
 │   ├── fl.hpp            # Umbrella header
-│   └── fl/               # Component headers
-│       ├── string.hpp
-│       ├── builder.hpp
-│       ├── substring_view.hpp
-│       ├── rope.hpp
-│       ├── immutable_string.hpp
-│       ├── synchronised_string.hpp
-│       ├── synchronized_string.hpp  # US spelling alias
-│       ├── arena.hpp
-│       ├── format.hpp
-│       ├── sinks.hpp
-│       ├── alloc_hooks.hpp
-│       ├── config.hpp
-│       ├── profiling.hpp
-│       └── debug/
-│           └── thread_safety.hpp
-├── tests/                # Test suite (4 CTest targets)
+│   ├── fl/               # Component headers
+│   │   ├── string.hpp
+│   │   ├── builder.hpp
+│   │   ├── substring_view.hpp
+│   │   ├── rope.hpp
+│   │   ├── immutable_string.hpp
+│   │   ├── synchronised_string.hpp
+│   │   ├── synchronized_string.hpp  # US spelling alias
+│   │   ├── arena.hpp
+│   │   ├── format.hpp
+│   │   ├── sinks.hpp
+│   │   ├── alloc_hooks.hpp
+│   │   ├── config.hpp
+│   │   ├── profiling.hpp
+│   │   └── debug/
+│   │       └── thread_safety.hpp
+├── tests/                # Test suite (10 CTest targets)
 ├── examples/             # Usage examples
 ├── benchmarks/           # Performance benchmarks (9 targets)
-├── docs/                 # Documentation
-├── .github/              # CI workflows and templates
+├── docs/                 # Documentation (15+ reference files)
+├── .github/              # CI workflows, agent configs, templates
 └── CMakeLists.txt
 ```
 

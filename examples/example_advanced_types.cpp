@@ -27,9 +27,9 @@ int main() {
 
         // Views enable efficient substring searching without allocation
         std::cout << "Substring operations on views:\n";
-        std::cout << "  - Contains 'World': " << (greeting.contains("World") ? "Yes" : "No") << "\n";
-        std::cout << "  - Starts with 'Hello': " 
-                  << (greeting.starts_with(fl::substring_view("Hello", 5)) ? "Yes" : "No") 
+        std::cout << "  - Contains 'World': " << (greeting.contains(fl::substring_view("World")) ? "Yes" : "No") << "\n";
+        std::cout << "  - Starts with 'Hello': "
+                  << (greeting.starts_with(fl::substring_view("Hello", 5)) ? "Yes" : "No")
                   << "\n";
         
         // Extract substring from view
@@ -106,32 +106,35 @@ int main() {
         std::cout << error_count << "\n\n";
     }
 
-    // =========== Example 4: immutable_string_view for Map Keys ===========
-    std::cout << "4. immutable_string_view: Optimised Map Keys\n"
-              << "─────────────────────────────────────────────\n\n";
+    // =========== Example 4: substring_view for Map Keys ===========
+    std::cout << "4. substring_view: Lightweight Map Keys\n"
+              << "────────────────────────────────────────\n\n";
     {
-        std::cout << "Using immutable views as hash map keys:\n\n";
+        std::cout << "Using substring_view as hash map keys:\n\n";
 
-        // Create a map of configuration settings
-        std::unordered_map<fl::immutable_string_view, std::string,
-                          fl::immutable_string_hash,
-                          fl::immutable_string_equal> config;
+        // Create a map of configuration settings using substring_view
+        // (substring_view provides substring_view_hash and substring_view_equal)
+        std::unordered_map<fl::substring_view, std::string,
+                          fl::substring_view_hash,
+                          fl::substring_view_equal> config;
 
-        // Use literal strings directly (no allocation for views)
-        config[fl::immutable_string_view("database.host")] = "localhost";
-        config[fl::immutable_string_view("database.port")] = "5432";
-        config[fl::immutable_string_view("cache.enabled")] = "true";
-        config[fl::immutable_string_view("cache.ttl")] = "3600";
+        // Use views into string literals (no allocation for views)
+        config[fl::substring_view("database.host")] = "localhost";
+        config[fl::substring_view("database.port")] = "5432";
+        config[fl::substring_view("cache.enabled")] = "true";
+        config[fl::substring_view("cache.ttl")] = "3600";
 
         std::cout << "Configuration entries:\n";
         for (const auto& [key, value] : config) {
-            std::cout << "  " << key << " = " << value << "\n";
+            std::cout << "  ";
+            std::cout.write(key.data(), key.size());
+            std::cout << " = " << value << "\n";
         }
         std::cout << "\n";
 
-        // Hash caching makes repeated lookups efficient
-        fl::immutable_string_view db_port("database.port");
-        std::cout << "Repeated lookups (benefits from hash caching):\n";
+        // Repeated lookups
+        fl::substring_view db_port("database.port");
+        std::cout << "Repeated lookups:\n";
         for (int i = 0; i < 3; ++i) {
             auto it = config.find(db_port);
             std::cout << "  Lookup " << i+1 << ": " << it->second << "\n";
@@ -139,45 +142,28 @@ int main() {
         std::cout << "\n";
     }
 
-    // =========== Example 5: Owning Immutable Strings ===========
-    std::cout << "5. owning_immutable_string: Persistent Map Keys\n"
-              << "───────────────────────────────────────────────\n\n";
+    // =========== Example 5: Immutable Strings for Thread Safety ===========
+    std::cout << "5. immutable_string: Thread-Safe Shared Data\n"
+              << "────────────────────────────────────────────\n\n";
     {
-        std::cout << "Using owning strings for persistent storage:\n\n";
+        std::cout << "Using immutable_string for safe shared access:\n\n";
 
-        // Simulate collecting keys that might not persist
-        std::vector<std::string> temp_keys = {
-            "user123",
-            "session456",
-            "cache789"
-        };
+        // immutable_string uses atomic refcounting — copies are O(1)
+        fl::immutable_string shared("Shared configuration data");
 
-        // Create owning copies for long-term storage
-        std::unordered_map<fl::owning_immutable_string, int,
-                          fl::immutable_string_hash,
-                          fl::immutable_string_equal> key_counts;
+        // Copy is O(1) — just increments the refcount
+        fl::immutable_string copy1 = shared;
+        fl::immutable_string copy2 = shared;
 
-        for (const auto& key : temp_keys) {
-            fl::owning_immutable_string owned_key(key);
-            key_counts[owned_key] = 0;
-            // temp key goes out of scope; owned_key retains a copy
-        }
+        std::cout << "  Original: '" << shared.data() << "' (size: " << shared.size() << ")\n";
+        std::cout << "  Copy 1:   '" << copy1.data() << "'\n";
+        std::cout << "  Copy 2:   '" << copy2.data() << "'\n";
+        std::cout << "  All copies share the same underlying buffer (O(1) copy)\n\n";
 
-        std::cout << "Keys stored (survived source destruction):\n";
-        for (auto& [key, count] : key_counts) {
-            std::cout << "  " << key << ": count=" << count << "\n";
-        }
-        std::cout << "\n";
-
-        // Increment counters
-        fl::owning_immutable_string lookup_key("user123");
-        key_counts[lookup_key]++;
-        
-        std::cout << "After incrementing user123:\n";
-        for (auto& [key, count] : key_counts) {
-            std::cout << "  " << key << ": count=" << count << "\n";
-        }
-        std::cout << "\n";
+        // immutable_string can be used as a map key via std::string_view comparison
+        std::unordered_map<std::string, int> counters;
+        counters[std::string(shared.data(), shared.size())] = 42;
+        std::cout << "  Counter value: " << counters["Shared configuration data"] << "\n\n";
     }
 
     // =========== Example 6: Combined Usage Pattern ===========

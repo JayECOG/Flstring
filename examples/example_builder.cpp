@@ -102,14 +102,20 @@ int main() {
         std::cout << "  Result: '" << result.c_str() << "'" << std::endl << std::endl;
     }
 
-    // Example 7: Formatted building (simplified)
+    // Example 7: Formatted building
     {
         std::cout << "7. Builder with formatted values:" << std::endl;
         
         fl::string_builder builder;
         int value = 42;
-        builder.append("The answer is: ")
-               .append_formatted("{}", value);
+        builder.append("The answer is: ");
+        
+        // Use fl::format_to with a buffer_sink for zero-allocation formatting
+        char fmt_buf[32];
+        auto sink = fl::make_buffer_sink(fmt_buf, sizeof(fmt_buf));
+        fl::format_to(sink, "{}", value);
+        sink.null_terminate();
+        builder.append(fmt_buf);
         
         fl::string result = std::move(builder).build();
         std::cout << "  Result: '" << result.c_str() << "'" << std::endl << std::endl;

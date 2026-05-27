@@ -1,6 +1,6 @@
-#include <fl/string.hpp>
-#include <fl/immutable_string.hpp>
-#include <fl/synchronised_string.hpp>
+#include "../include/fl/string.hpp"
+#include "../include/fl/immutable_string.hpp"
+#include "../include/fl/synchronised_string.hpp"
 #include <thread>
 #include <vector>
 #include <iostream>

@@ -10,6 +10,19 @@ project(fl-string
 # Enable C++ explicitly
 enable_language(CXX)
 
+# Feature detection for C++ standard compatibility
+include(CheckCXXSourceCompiles)
+
+# Option to build fl as a shared library (DLL on Windows).
+# When ON, the FL_BUILD_SHARED preprocessor define is set, activating the
+# FL_EXPORT / FL_IMPORT macros in include/fl/config.hpp for symbol visibility.
+option(FL_BUILD_SHARED "Build fl as a shared library" OFF)
+
+# fl is a C++20 library.  The C++ standard is fixed at C++20; we do not
+# support compiling the library under older standards.  For users working in
+# C++11/14/17 projects, fl provides std::string conversion APIs and a
+# lightweight compat/string_view.hpp header to enable interoperation without
+# requiring those projects to upgrade.
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -91,6 +104,16 @@ add_library(fl INTERFACE)
 target_include_directories(fl INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
+)
+
+# Compile definitions propagated to consumers.
+# - FL_BUILD_SHARED activates FL_EXPORT / FL_IMPORT in config.hpp.
+# - Version macros allow consumers to query the library version at compile time.
+target_compile_definitions(fl INTERFACE
+    $<$<BOOL:${FL_BUILD_SHARED}>:FL_BUILD_SHARED>
+    FL_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    FL_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    FL_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
 # Add compile options for warnings
@@ -185,8 +208,6 @@ else()
     set(absl_FOUND FALSE)
     set(Boost_FOUND FALSE)
 endif()
-
-message(STATUS "Note: fl/cpu_features.hpp has been removed; allocators now rely on default alignment heuristics.")
 
 # Enable testing
 include(CTest)
@@ -285,6 +306,13 @@ endif()
 add_executable(aslr_construction_bench benchmarks/aslr_construction_bench.cpp)
 target_link_libraries(aslr_construction_bench PRIVATE fl)
 
+# Multi-standard C++ version benchmarks
+add_executable(multi_standard_bench benchmarks/multi_standard_bench.cpp)
+target_link_libraries(multi_standard_bench PRIVATE fl)
+
+add_executable(performance_optimisation_benchmarks benchmarks/performance_optimisation_benchmarks.cpp)
+target_link_libraries(performance_optimisation_benchmarks PRIVATE fl)
+
 # Tests
 add_executable(rope_linear_access_vs_std tests/rope_linear_access_vs_std.cpp)
 target_link_libraries(rope_linear_access_vs_std PRIVATE fl)
@@ -306,6 +334,31 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(test_rope_access_index PRIVATE -Wno-array-bounds)
 endif()
 add_test(NAME test_rope_access_index COMMAND test_rope_access_index)
+
+add_executable(test_format tests/test_format.cpp)
+target_link_libraries(test_format PRIVATE fl)
+add_test(NAME test_format COMMAND test_format)
+
+add_executable(test_format_comprehensive tests/test_format_comprehensive.cpp)
+target_link_libraries(test_format_comprehensive PRIVATE fl)
+add_test(NAME test_format_comprehensive COMMAND test_format_comprehensive)
+
+add_executable(test_format_stress tests/test_format_stress.cpp)
+target_link_libraries(test_format_stress PRIVATE fl)
+add_test(NAME test_format_stress COMMAND test_format_stress)
+
+add_executable(test_arena tests/test_arena.cpp)
+target_link_libraries(test_arena PRIVATE fl)
+add_test(NAME test_arena COMMAND test_arena)
+
+add_executable(test_cpp_versions tests/test_cpp_versions.cpp)
+target_link_libraries(test_cpp_versions PRIVATE fl)
+add_test(NAME test_cpp_versions COMMAND test_cpp_versions)
+
+# ─── Multi-standard compile-compatibility check targets ────────────────
+# (Removed in 2.0.0.  fl is a C++20 library.  Compatibility for C++11/14/17
+# projects is provided via std::string conversion APIs and the
+# compat/string_view.hpp header.)
 
 # Package configuration files
 include(CMakePackageConfigHelpers)

@@ -1,0 +1,828 @@
+FLSTRING 2.0.0 CANONICAL BASELINE (IMMUTABLE REFERENCE)
+====================================================
+Generated: 2026-04-10 23:11:58 -05:00
+Branch: main
+OS: Windows
+Compiler: GCC 14.2.0 (MSYS2 UCRT64)
+Generator: Ninja
+
+PURPOSE
+-------
+This file is the canonical performance/correctness baseline for Flstring 2.0.0 release work.
+Future optimisation claims must be compared against this file and the raw logs referenced below.
+
+COMMANDS EXECUTED
+-----------------
+1) cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe
+2) cmake --build build --parallel
+3) ctest --test-dir build --output-on-failure --verbose
+4) Benchmarks: string_vs_std_bench, rope_vs_std_string_benchmarks, comprehensive_bench, find_haystack_bench, rope_rebalance_bench, pmr_vs_pool_bench, aslr_construction_bench
+
+STATUS
+------
+BUILD_EXIT=0
+CTEST_EXIT=0
+
+BENCHMARK EXIT SUMMARY
+----------------------
+string_vs_std_bench EXIT=0 ELAPSED_MS=158
+rope_vs_std_string_benchmarks EXIT=0 ELAPSED_MS=93
+comprehensive_bench EXIT=0 ELAPSED_MS=58192
+find_haystack_bench EXIT=0 ELAPSED_MS=17011
+rope_rebalance_bench EXIT=0 ELAPSED_MS=316
+pmr_vs_pool_bench EXIT=0 ELAPSED_MS=416
+aslr_construction_bench EXIT=0 ELAPSED_MS=91
+
+RAW LOG INVENTORY
+-----------------
+- build/benchmark_results/fl20_build.log
+- build/benchmark_results/fl20_ctest.log
+- build/benchmark_results/fl20_benchmarks_all.log
+- build/benchmark_results/string_vs_std_bench.log
+- build/benchmark_results/comprehensive_bench.log
+- build/benchmark_results/find_haystack_bench.log
+- build/benchmark_results/rope_rebalance_bench.log
+- build/benchmark_results/pmr_vs_pool_bench.log
+- build/benchmark_results/aslr_construction_bench.log
+
+CTEST FULL OUTPUT
+-----------------
+UpdateCTestConfiguration  from :E:/Flstring/build/DartConfiguration.tcl
+Parse Config file:E:/Flstring/build/DartConfiguration.tcl
+Test project E:/Flstring/build
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: rope_linear_access_vs_std
+
+1: Test command: E:\Flstring\build\rope_linear_access_vs_std.exe
+1: Working Directory: E:/Flstring/build
+1: Test timeout computed to be: 1500
+1: Append (us): rope=454 std=121
+1: Linear view checksum (us): rope=159 std=59
+1: Indexed checksum (us): rope=1126
+1: Checksums: rope_linear=15520000 rope_index=15520000 std=15520000
+1/4 Test #1: rope_linear_access_vs_std ........   Passed    0.06 sec
+test 2
+    Start 2: fl_string_vs_std_full_test
+
+2: Test command: E:\Flstring\build\fl_string_vs_std_full_test.exe
+2: Working Directory: E:/Flstring/build
+2: Test timeout computed to be: 1500
+2: === Correctness Suite: fl::string vs std::string ===
+2: Correctness: PASS
+2: 
+2: === Performance Suite: fl::string vs std::string ===
+2: Samples per operation: 5 (median of per-sample 3-run averages)
+2: Operation               std_med(us)   fl_med(us)    std/fl    std_cv(%)   fl_cv(%)    
+2: --------------------------------------------------------------------------------
+2: Construct small (SSO)   1830.367      536.500       3.412     5.40        7.45        
+2: Construct large (heap)  2490.533      1752.267      1.421     3.11        4.32        
+2: Append small chunks     16272.767     11693.867     1.392     0.70        0.81        
+2: Find substring          1612.333      1573.000      1.025     3.05        1.18        
+2: Find substring (long)   49324.433     49588.100     0.995     1.57        2.93        
+2: Substr                  1187.333      2020.833      0.588     0.40        0.87        
+2: Insert mid              278.400       277.500       1.003     0.43        0.26        
+2: Erase mid               2330.900      315.400       7.390     5.29        1.28        
+2: Replace mid             4959.200      256.433       19.339    2.28        1.75        
+2: Comparison ==           1334.633      1478.667      0.903     4.09        0.58        
+2: Operator+               1446.467      1156.667      1.251     5.48        3.04        
+2: Lazy concat large       9585.100      18207.133     0.526     0.50        3.35        
+2: Lazy concat micro       50868.100     26133.000     1.947     1.52        1.93        
+2: 
+2: === Lazy Concat Branch Profiling (fl::lazy_concat) ===
+2: Case                        median(us)      mean(us)        cv(%)       median(ns/op) 
+2: ------------------------------------------------------------------------------
+2: materialize: empty          93.700          94.033          1.38        1.87          
+2: materialize: single view    3850.833        3857.120        1.17        77.02         
+2: materialize: single owned   11557.667       11633.813       2.47        231.15        
+2: materialize: multi view     13713.000       13839.847       1.90        274.26        
+2: materialize: multi owned    78367.100       78520.900       2.92        1567.34       
+2: 
+2: Summary: fl faster in 9, std faster in 4, ties 0 operations.
+2: Overall: PASS
+2/4 Test #2: fl_string_vs_std_full_test .......   Passed    5.97 sec
+test 3
+    Start 3: test_adaptive_find
+
+3: Test command: E:\Flstring\build\test_adaptive_find.exe
+3: Working Directory: E:/Flstring/build
+3: Test timeout computed to be: 1500
+3: PASS: size-2 needle: exact match
+3: PASS: size-2 needle: found at position 1
+3: PASS: size-2 needle: found at start
+3: PASS: size-2 needle: found at end
+3: PASS: size-2 needle: found in middle
+3: PASS: size-2 needle: large haystack
+3: PASS: size-2 needle: not found
+3: PASS: size-2 needle: haystack too small
+3: PASS: size-2 needle: empty haystack
+3: PASS: size-3 needle: exact match small
+3: PASS: size-3 needle: large haystack
+3: PASS: size-3 needle: at start of large haystack
+3: PASS: size-3 needle: at end of large haystack
+3: PASS: size-3 needle: not found in large haystack
+3: PASS: size-3 needle: haystack too small
+3: PASS: size-4 needle: large haystack
+3: PASS: size-4 needle: at start of large haystack
+3: PASS: size-4 needle: at end of large haystack
+3: PASS: size-4 needle: not found in large haystack
+3: PASS: size-4 needle: exact match small
+3: PASS: size-4 needle: haystack too small
+3: PASS: size-1 needle: at start
+3: PASS: size-1 needle: at position 1
+3: PASS: size-1 needle: at end
+3: PASS: size-1 needle: first occurrence
+3: PASS: size-1 needle: not found
+3: PASS: low-entropy needle: BMH path
+3: PASS: low-entropy needle: at end
+3: PASS: empty needle: returns position
+3: PASS: needle larger than haystack
+3: PASS: position beyond string
+3: PASS: position at end
+3: PASS: find from middle
+3: PASS: find from middle + 1
+3: PASS: repeated pattern: first occurrence
+3: PASS: repeated pattern: second occurrence
+3: PASS: repeated pattern: third occurrence
+3: PASS: repeated chars: first ab
+3: PASS: repeated chars: second ab
+3: 
+3: All adaptive find tests passed!
+3/4 Test #3: test_adaptive_find ...............   Passed    0.06 sec
+test 4
+    Start 4: test_rope_access_index
+
+4: Test command: E:\Flstring\build\test_rope_access_index.exe
+4: Working Directory: E:/Flstring/build
+4: Test timeout computed to be: 1500
+4: PASS: large rope: size matches
+4: PASS: large rope: exceeds index threshold
+4: PASS: indexed access: first char
+4: PASS: indexed access: position 100
+4: PASS: indexed access: position 1000
+4: PASS: indexed access: position 3000
+4: PASS: indexed access: last char
+4: PASS: indexed access: sequential access every 100th char
+4: PASS: at() method: first char
+4: PASS: at() method: position 2000
+4: PASS: at() method: last char
+4: PASS: very large rope: exceeds index threshold
+4: PASS: sampled index: first chunk
+4: PASS: sampled index: middle chunk
+4: PASS: sampled index: later chunk
+4: PASS: sampled index: last chunk
+4: PASS: sampled index: multiple positions
+4: PASS: modifiable rope: large enough for indexing
+4: PASS: modifiable rope: access before modification
+4: PASS: modifiable rope: access after modification
+4: PASS: modifiable rope: original position still correct
+4: PASS: small rope: below index threshold
+4: PASS: small rope: first char
+4: PASS: small rope: last char
+4: PASS: medium rope: still below threshold
+4: PASS: medium rope: first char
+4: PASS: medium rope: access in middle
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: chunk boundary
+4: PASS: boundary access: before boundary
+4: PASS: boundary access: at boundary
+4: PASS: boundary access: after boundary
+4: PASS: boundary access: before boundary
+4: PASS: boundary access: at boundary
+4: PASS: boundary access: after boundary
+4: PASS: boundary access: before boundary
+4: PASS: boundary access: at boundary
+4: PASS: boundary access: after boundary
+4: PASS: boundary access: before boundary
+4: PASS: boundary access: at boundary
+4: PASS: boundary access: after boundary
+4: PASS: concatenated rope: size
+4: PASS: concatenated rope: exceeds threshold
+4: PASS: concatenated rope: first char from r1
+4: PASS: concatenated rope: last char from r1
+4: PASS: concatenated rope: first char from r2
+4: PASS: concatenated rope: last char from r2
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: forward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: backward
+4: PASS: repeated access: random pattern
+4: PASS: repeated access: random pattern
+4: PASS: repeated access: random pattern
+4: PASS: repeated access: random pattern
+4: PASS: repeated access: random pattern
+4: PASS: repeated access: random pattern
+4: PASS: repeated access: random pattern
+4: 
+4: All rope access index tests passed!
+4/4 Test #4: test_rope_access_index ...........   Passed    0.06 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =   6.22 sec
+
+BENCHMARK FULL OUTPUT
+---------------------
+===== BEGIN string_vs_std_bench =====
+Benchmarking fl::string vs std::string (1000000 iterations)
+------------------------------------------------------------------
+Operation                     std::string    fl::string     Ratio (std/fl)
+------------------------------------------------------------------
+SSO Construction (11 chars)   238.400        230.400        1.035x
+Heap Construction (98 chars)  4045.200       3308.800       1.223x
+SSO Simple Append             230.400        230.400        1.000x
+Repeated Char Config (10)     230.300        234.000        0.984x
+Heap Append (100x4 chars)     34084.900      25648.800      1.329x
+Find Substring                3738.100       3749.000       0.997x
+Substr Comparison             2549.000       3047.300       0.836x
+Append (Concatenation)        6015.500       4182.400       1.438x
+------------------------------------------------------------------
+===== END string_vs_std_bench exit=0 elapsed_ms=158 =====
+===== BEGIN rope_vs_std_string_benchmarks =====
+===== END rope_vs_std_string_benchmarks exit=0 elapsed_ms=93 =====
+===== BEGIN comprehensive_bench =====
+Comprehensive fl::string vs std::string Benchmark Suite
+========================================================
+
+Category,Operation,Iterations,StdMedian_us,FlMedian_us,StdMean_us,FlMean_us,StdMin_us,FlMin_us,StdMax_us,FlMax_us,StdIQR,FlIQR,Ratio_Median
+Construction,Default,10000,2.300,2.300,2.360,2.347,2.300,2.300,13.700,6.200,0.100,0.100,1.000
+Construction,FromCStr_SSO_11,100000,23.100,193.400,24.372,209.030,23.000,184.200,63.700,682.600,0.000,26.600,0.119
+Construction,FromCStrLen_SSO_11,100000,24.000,25.000,24.701,29.334,23.000,23.000,48.500,112.200,1.900,3.800,0.960
+Construction,FromCStr_Heap_98,50000,1717.100,1734.600,1780.797,1806.873,1689.300,1481.100,3272.900,3468.800,54.400,50.700,0.990
+Construction,Copy_SSO_11,100000,322.500,207.800,326.797,215.666,322.400,207.300,687.300,423.000,3.500,6.900,1.552
+Construction,Copy_Heap_75,50000,1879.100,1952.450,2024.719,2016.853,1861.800,1783.700,7409.400,3431.600,94.100,120.000,0.962
+Construction,Move_SSO_11,100000,46.100,23.100,46.961,23.661,46.000,23.000,75.400,37.200,0.000,0.300,1.996
+Construction,RepeatChar_SSO_15,100000,23.100,23.100,23.228,23.233,23.000,23.000,40.000,81.200,0.100,0.100,1.000
+Construction,RepeatChar_Heap_100,50000,1693.550,1734.000,1816.757,1761.230,1627.200,1477.700,3811.900,2608.200,197.200,20.300,0.977
+Assignment,Copy_SSO_to_SSO,100000,302.100,234.000,313.493,249.128,299.400,230.300,797.100,801.500,11.700,19.600,1.291
+Assignment,Copy_Heap_to_Heap,50000,303.300,291.600,306.056,304.784,253.300,276.400,410.200,704.900,3.700,19.600,1.040
+Assignment,Move,100000,835.600,138.300,878.058,140.474,829.100,138.200,1630.600,221.400,78.700,0.100,6.042
+Assignment,CString,100000,184.300,219.600,190.079,225.310,184.200,213.000,264.900,428.000,6.600,5.100,0.839
+Append,CStr_SSO_Stays_SSO,100000,23.100,23.100,23.233,23.260,23.000,23.000,60.300,85.000,0.100,0.100,1.000
+Append,SSO_to_Heap_Transition,50000,2355.350,2160.200,2393.375,2172.134,2299.800,2007.600,4441.500,3431.900,68.800,53.700,1.090
+Append,Many_Small_100x,10000,2492.200,1626.100,2711.768,1669.006,2441.200,1581.500,5035.200,2572.600,362.100,61.500,1.533
+Append,SingleChar,100000,46.100,46.100,46.373,46.281,46.000,46.000,75.900,79.800,0.000,0.000,1.000
+Append,OperatorPlusEq_CStr,100000,46.100,23.100,46.821,23.194,46.000,23.000,100.400,64.000,0.000,0.100,1.996
+Append,OperatorPlusEq_Char,100000,23.100,23.100,23.171,23.184,23.000,23.000,55.000,40.700,0.100,0.100,1.000
+Find,Substring_Found,100000,372.850,393.450,392.801,405.655,345.500,391.500,666.800,1301.100,37.300,7.500,0.948
+Find,Substring_NotFound,100000,1949.500,1834.100,1967.733,1860.051,1865.700,1750.500,3062.500,2679.700,94.300,164.800,1.063
+Find,SingleChar,100000,299.500,299.500,302.285,304.090,299.400,299.400,679.100,513.200,2.700,2.900,1.000
+Find,Rfind_Substring,100000,414.950,349.050,433.218,374.066,368.500,345.500,1204.900,669.800,102.000,44.200,1.189
+Find,FindFirstOf,100000,115.600,115.500,128.446,118.035,115.200,115.200,261.100,156.600,8.900,2.500,1.001
+Find,FindLastOf,100000,92.700,115.200,94.933,125.639,92.100,115.100,262.300,291.400,0.500,0.100,0.805
+Substring,Substr_Small_10,100000,253.500,276.500,261.618,280.700,253.300,276.400,424.100,412.500,5.300,3.500,0.917
+Substring,Substr_Large_40,50000,1747.300,1795.550,1818.948,1799.671,1720.500,1461.300,3094.500,2631.700,83.800,96.300,0.973
+Substring,Compare_Equal,100000,322.600,322.600,333.307,334.398,322.400,322.400,430.600,549.600,12.500,3.800,1.000
+Modification,Insert_Beginning,50000,11.600,11.600,11.719,11.719,11.500,11.500,47.500,27.100,0.100,0.100,1.000
+Modification,Insert_Middle,50000,2317.550,11.600,2383.821,11.615,2275.800,11.500,4610.300,20.600,27.200,0.100,199.789
+Modification,Erase_Middle,50000,1633.300,11.600,1699.108,12.033,1614.400,11.500,3327.100,31.100,46.100,0.000,140.802
+Modification,Erase_SingleChar,100000,23.100,23.100,23.556,23.192,23.000,23.000,63.000,61.300,0.100,0.100,1.000
+Modification,Replace,50000,11.600,11.600,11.635,11.610,11.500,11.500,34.300,19.500,0.100,0.100,1.000
+Capacity,Reserve_100,100000,3271.400,3560.800,3333.496,3569.578,3208.900,3102.000,4783.400,4815.900,55.800,21.700,0.919
+Capacity,Resize_Grow_5to50,50000,2132.650,2514.100,2188.503,2516.789,2109.100,2384.500,3661.000,3529.300,32.500,29.700,0.848
+Capacity,Resize_Shrink_44to10,50000,1619.700,1731.650,1653.872,1708.643,1602.600,1474.100,3936.200,2662.400,22.500,70.300,0.935
+Capacity,ShrinkToFit,10000,367.000,400.800,400.757,408.723,343.600,350.700,1114.900,683.100,32.800,24.100,0.916
+Capacity,Clear,100000,49.500,23.200,49.388,23.995,46.600,23.000,76.900,113.100,2.300,0.200,2.134
+Iterators,Forward_Iteration,100000,357.100,359.100,362.999,367.092,339.700,345.500,536.500,619.500,9.000,3.800,0.994
+Iterators,RangeBased_For,100000,347.500,351.300,354.830,354.188,345.500,345.500,831.500,502.600,5.500,3.100,0.989
+Comparison,Equality_Equal,100000,345.800,57.600,355.673,58.685,345.500,57.600,498.800,84.400,7.700,0.100,6.003
+Comparison,Equality_Different,100000,23.100,23.100,23.288,23.514,23.000,23.000,58.800,67.700,0.000,0.000,1.000
+Comparison,LessThan,100000,276.400,230.400,280.016,232.181,276.400,230.300,848.800,298.300,2.500,0.200,1.200
+Comparison,Inequality,100000,299.500,46.100,301.440,47.160,299.400,46.000,376.500,254.200,2.600,0.000,6.497
+
+Benchmark complete.
+===== END comprehensive_bench exit=0 elapsed_ms=58192 =====
+===== BEGIN find_haystack_bench =====
+
+=== find() throughput ΓÇö small haystacks 256ΓÇô4096 B (high-entropy) ===
+Haystack  Needle      Position  std (ns/op)   fl  (ns/op)   fl/std      Winner
+------------------------------------------------------------------------
+Iterations per cell: 500000
+
+256       3-char      early     5.57          6.38          1.145       std wins
+256       3-char      mid       11.44         12.02         1.051       parity
+256       3-char      late      18.98         19.12         1.007       parity
+256       10-char     early     8.23          9.53          1.158       std wins
+256       10-char     mid       12.64         13.40         1.060       parity
+256       10-char     late      22.08         19.52         0.884       fl wins
+256       12-char     early     9.90          9.46          0.955       parity
+256       12-char     mid       12.92         13.43         1.040       parity
+256       12-char     late      18.94         19.34         1.021       parity
+
+512       3-char      early     7.19          8.87          1.235       std wins
+512       3-char      mid       20.08         18.60         0.926       fl wins
+512       3-char      late      27.66         28.26         1.022       parity
+512       10-char     early     9.92          10.22         1.031       parity
+512       10-char     mid       18.50         19.27         1.042       parity
+512       10-char     late      30.00         30.71         1.023       parity
+512       12-char     early     10.77         11.00         1.022       parity
+512       12-char     mid       19.29         19.77         1.025       parity
+512       12-char     late      30.03         30.02         1.000       parity
+
+1024      3-char      early     9.79          10.53         1.076       std wins
+1024      3-char      mid       30.90         31.34         1.014       parity
+1024      3-char      late      51.15         52.69         1.030       parity
+1024      10-char     early     11.04         12.82         1.162       std wins
+1024      10-char     mid       31.61         32.22         1.019       parity
+1024      10-char     late      53.88         54.20         1.006       parity
+1024      12-char     early     11.13         11.58         1.040       parity
+1024      12-char     mid       32.66         33.50         1.026       parity
+1024      12-char     late      54.40         55.08         1.012       parity
+
+2048      3-char      early     14.67         15.26         1.041       parity
+2048      3-char      mid       56.99         57.69         1.012       parity
+2048      3-char      late      99.14         99.15         1.000       parity
+2048      10-char     early     17.00         17.64         1.037       parity
+2048      10-char     mid       57.44         60.73         1.057       parity
+2048      10-char     late      102.37        101.17        0.988       parity
+2048      12-char     early     16.41         16.94         1.032       parity
+2048      12-char     mid       58.67         58.68         1.000       parity
+2048      12-char     late      108.50        107.42        0.990       parity
+
+4096      3-char      early     30.44         27.84         0.915       fl wins
+4096      3-char      mid       122.16        111.21        0.910       fl wins
+4096      3-char      late      201.44        201.99        1.003       parity
+4096      10-char     early     27.61         28.07         1.017       parity
+4096      10-char     mid       109.75        110.05        1.003       parity
+4096      10-char     late      202.65        202.40        0.999       parity
+4096      12-char     early     28.20         28.84         1.023       parity
+4096      12-char     mid       109.91        111.49        1.014       parity
+4096      12-char     late      205.29        208.43        1.015       parity
+
+
+=== find() throughput ΓÇö large haystacks 64 KBΓÇô4 MB (high-entropy) ===
+Haystack  Needle      Position  std (ns/op)   fl  (ns/op)   fl/std      Winner
+------------------------------------------------------------------------
+Needle: 25-char unique-char string.  Iterations per cell: 1000
+
+65536     25-char     early     347.20        1250.20       3.601       std wins
+65536     25-char     mid       1714.30       1272.90       0.743       fl wins
+65536     25-char     late      3017.40       1249.00       0.414       fl wins
+
+131072    25-char     early     684.90        2462.80       3.596       std wins
+131072    25-char     mid       3342.50       2499.20       0.748       fl wins
+131072    25-char     late      6004.10       2466.50       0.411       fl wins
+
+524288    25-char     early     2709.30       10236.60      3.778       std wins
+524288    25-char     mid       13584.60      10022.20      0.738       fl wins
+524288    25-char     late      24222.50      9971.90       0.412       fl wins
+
+1048576   25-char     early     5366.40       21066.40      3.926       std wins
+1048576   25-char     mid       26983.50      20303.50      0.752       fl wins
+1048576   25-char     late      48299.10      20441.40      0.423       fl wins
+
+4194304   25-char     early     21512.50      119271.50     5.544       std wins
+4194304   25-char     mid       116988.30     111579.70     0.954       parity
+4194304   25-char     late      278985.50     125617.50     0.450       fl wins
+
+
+=== find() throughput ΓÇö large haystacks 64 KBΓÇô1 MB (low-entropy / periodic) ===
+Haystack  Needle      Position  std (ns/op)   fl  (ns/op)   fl/std      Winner
+------------------------------------------------------------------------
+Needle: 24├ù'a'+'b', haystack: all 'a'.  memmem is O(n*m) worst case.
+Iterations per cell: 500
+
+65536     25-char     early     55142.40      18407.80      0.334       fl wins
+65536     25-char     mid       284194.00     22960.60      0.081       fl wins
+65536     25-char     late      516094.20     18726.60      0.036       fl wins
+
+131072    25-char     early     111175.40     36965.00      0.332       fl wins
+131072    25-char     mid       562971.40     36540.60      0.065       fl wins
+131072    25-char     late      1010274.20    36569.40      0.036       fl wins
+
+524288    25-char     early     441913.20     147839.00     0.335       fl wins
+524288    25-char     mid       2415283.60    154031.20     0.064       fl wins
+524288    25-char     late      4176435.60    149356.00     0.036       fl wins
+
+1048576   25-char     early     942609.80     307512.20     0.326       fl wins
+1048576   25-char     mid       4471074.80    297127.80     0.066       fl wins
+1048576   25-char     late      8143770.20    304678.40     0.037       fl wins
+
+===== END find_haystack_bench exit=0 elapsed_ms=17011 =====
+===== BEGIN rope_rebalance_bench =====
+
+=== fl::rope concat: effect of rebalance() ===
+All timings are mean over repeated runs (ms).
+
+N strings   str len   std::str (ms) rope no-rebal (ms)rope once  (ms)   rope per32 (ms)   no-rebal/std  once/std
+--------------------------------------------------------------------------------------------------------
+100         10        0.000         0.005             0.005             0.005             13.59         13.53
+1000        10        0.003         0.047             0.050             0.049             17.11         17.93
+10000       10        0.053         0.582             0.596             0.546             11.00         11.26
+100         100       0.001         0.017             0.016             0.016             23.60         22.25
+1000        100       0.021         0.124             0.125             0.131             5.95          5.96
+10000       100       0.099         1.630             1.483             1.489             16.47         14.99
+100         1000      0.006         0.026             0.029             0.030             4.64          5.08
+1000        1000      0.047         0.512             0.458             0.513             10.94         9.78
+5000        1000      1.481         3.355             3.195             3.358             2.26          2.16
+===== END rope_rebalance_bench exit=0 elapsed_ms=316 =====
+===== BEGIN pmr_vs_pool_bench =====
+
+=== Allocator comparison: fl pool vs std::pmr::monotonic_buffer_resource ===
+
+Workload 1: Build-and-destroy 1000 heap strings (~70 chars each), 500 runs
+  fl::string + fl pool        : 29.17 ┬╡s/run
+  fl::string + pmr monotonic  : 40.41 ┬╡s/run
+  std::string (global malloc) : 36.76 ┬╡s/run
+  std::pmr::string + monotonic: 5.31 ┬╡s/run
+  Ratios (vs fl pool):  fl_pmr=1.39x  std=1.26x  pmr_str=0.18x
+
+Workload 2: Grow string to 1 KB via 256x append("data"), 100000 runs
+  fl::string + fl pool        : 0.690 ┬╡s/run
+  fl::string + pmr monotonic  : 0.558 ┬╡s/run
+  std::string (global malloc) : 0.836 ┬╡s/run
+  std::pmr::string + monotonic: 0.430 ┬╡s/run
+  Ratios (vs fl pool):  fl_pmr=0.809x  std=1.211x  pmr_str=0.624x
+
+===== END pmr_vs_pool_bench exit=0 elapsed_ms=416 =====
+===== BEGIN aslr_construction_bench =====
+=== ASLR / allocator warm-up investigation ===
+
+Run 1 (cold ΓÇö first process launch, no explicit warm-up):
+  Heap construction (100000 iterations):
+  fl::string  : 435.00 ┬╡s  (4.35 ns/op)
+  std::string : 3246.00 ┬╡s  (32.46 ns/op)
+  fl/std ratio: 0.13x
+
+Run 2 (same process, allocator state partially warm from Run 1):
+  Heap construction:
+  fl::string  : 530.10 ┬╡s  (5.30 ns/op)
+  std::string : 3235.10 ┬╡s  (32.35 ns/op)
+  fl/std ratio: 0.16x
+
+Run 3 (same process, after explicit allocator warm-up with 100000 pre-alloc/free cycles):
+  Heap construction:
+  fl::string  : 532.50 ┬╡s  (5.33 ns/op)
+  std::string : 3246.80 ┬╡s  (32.47 ns/op)
+  fl/std ratio: 0.16x
+
+--- SSO path (no heap alloc, isolates non-allocator overhead) ---
+
+Run 1 (cold SSO):
+  fl::string  : 23.00 ┬╡s
+  std::string : 23.00 ┬╡s
+  fl/std ratio: 1.00x
+
+Run 2 (warm SSO):
+  fl::string  : 23.10 ┬╡s
+  std::string : 23.10 ┬╡s
+  fl/std ratio: 1.00x
+
+Run 3 (warm SSO):
+  fl::string  : 23.10 ┬╡s
+  std::string : 23.00 ┬╡s
+  fl/std ratio: 1.00x
+
+=== Summary ===
+Heap fl/std ratios: cold=0.134  warm1=0.164  warm2=0.164
+SSO  fl/std ratios: cold=1.000  warm1=1.000  warm2=1.004
+
+Interpretation:
+  If cold >> warm: construction anomaly is allocator cold-start
+    (ASLR places heap at new VA each launch ΓåÆ TLB/page-fault cost).
+  If all runs show fl >> std: the fl allocator path itself is slow
+    (aligned_alloc overhead vs glibc malloc bins).
+  If SSO ratios are near 1.0: the anomaly is heap-allocation specific.
+===== END aslr_construction_bench exit=0 elapsed_ms=91 =====
+
+END OF CANONICAL BASELINE
