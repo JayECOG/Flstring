@@ -191,10 +191,22 @@ where dependencies are available.
 
 ---
 
-## Contributing and Security
+## Contributing, Licensing, and Security
 
 Contribution guidelines are available in [CONTRIBUTING.md](../CONTRIBUTING.md). Security policies
 and vulnerability reporting procedures are documented in [SECURITY.md](../SECURITY.md).
+
+### Licensing
+
+This project is tri-licensed under the following licences:
+
+* **Apache License 2.0** — see [LICENSE-APACHE](../LICENSE-APACHE)
+* **zlib Licence** — see [LICENSE-ZLIB](../LICENSE-ZLIB)
+* **FL Licence** — see [LICENSE](../LICENSE)
+
+Unless otherwise stated in writing, all contributions to this project are licensed under the
+same licences as the project itself. By submitting a contribution, you agree that your
+contribution will be made available under these licences.
 
 ---
 
